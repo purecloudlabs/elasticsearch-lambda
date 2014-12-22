@@ -1,6 +1,5 @@
 package com.inin.analytics.elasticsearch.transport;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.commons.lang.StringUtils;
