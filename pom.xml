@@ -25,6 +25,8 @@
         <jackson.version>1.9.2</jackson.version>
         <logback.version>1.0.13</logback.version>
         <aws-java-sdk.version>1.8.2</aws-java-sdk.version>
+        <slf4j.version>1.7.5</slf4j.version>
+        <org.apache.avro.version>1.7.5</org.apache.avro.version>
     </properties>
 
     <!--External Repositories -->
@@ -83,7 +85,11 @@
             <artifactId>jackson-core-asl</artifactId>
             <version>${jackson.version}</version>
         </dependency>        
-
+		<dependency>
+			<groupId>org.apache.avro</groupId>
+			<artifactId>avro</artifactId>
+			<version>${org.apache.avro.version}</version>
+		</dependency>
        
         <dependency>
     		<groupId>us.monoid.web</groupId> 
@@ -101,14 +107,30 @@
 		<dependency>
 			<groupId>org.apache.curator</groupId>
 			<artifactId>curator-recipes</artifactId>
-			<version>2.3.0</version>
+			<version>${curator.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-math</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.javassist</groupId>
+                    <artifactId>javassist</artifactId>
+                </exclusion>
+            </exclusions>  
 		</dependency>
 		
 		<dependency>
 		    <groupId>org.apache.curator</groupId>
     		<artifactId>curator-framework</artifactId>
     		<version>2.3.0</version>
-    	</dependency>
+    		<exclusions>
+    			<exclusion>
+    				<artifactId>slf4j-api</artifactId>
+    				<groupId>org.slf4j</groupId>
+    			</exclusion>
+    		</exclusions>
+		</dependency>
 		
 	<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -159,15 +181,55 @@
 	<version>2.3.1</version>
 </dependency>
 		
+		<!-- Logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>log4j-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>                       
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
  		<!-- Logging -->
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-		</dependency>
+ 		      
+ 		        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+ 		<!-- 
 		<dependency>
 			<groupId>ch.qos.logback</groupId>
 			<artifactId>logback-classic</artifactId>
 			<version>${logback.version}</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>slf4j-api</artifactId>
+					<groupId>org.slf4j</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -175,7 +237,45 @@
 			<artifactId>logback-core</artifactId>
 			<version>${logback.version}</version>
 		</dependency>
- 
+		
+<dependency>
+  <groupId>net.logstash.logback</groupId>
+  <artifactId>logstash-logback-encoder</artifactId>
+  <version>3.4</version>
+</dependency>	
+
+		<dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-mapper-lgpl</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-core-lgpl</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>        
+        <dependency>
+            <artifactId>jackson-mapper-asl</artifactId>
+            <groupId>org.codehaus.jackson</groupId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-core-asl</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>    
+        <dependency>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-core</artifactId>
+	            <version>2.4.4</version>
+        </dependency>
+        <dependency>
+  <groupId>com.fasterxml.jackson.core</groupId>
+  <artifactId>jackson-annotations</artifactId>
+  <version>2.4.4</version>
+</dependency>
+        
+  -->
         <!-- Utility packages -->
         <dependency>
             <groupId>commons-lang</groupId>
@@ -209,8 +309,23 @@
             <artifactId>slf4j-api</artifactId>
             <version>1.7.5</version>
         </dependency>
+        <dependency>
+           <artifactId>slf4j-log4j12</artifactId>
+           <groupId>org.slf4j</groupId>
+            <version>1.7.5</version>
+        </dependency>
         
         
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>        
         
         <dependency>
             <groupId>org.apache.curator</groupId>
@@ -247,8 +362,6 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
-
-    
 
         <dependency>
             <groupId>org.apache.hadoop</groupId>

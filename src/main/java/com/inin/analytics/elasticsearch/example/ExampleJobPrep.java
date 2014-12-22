@@ -7,39 +7,39 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileOutputFormat;
-import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 
 import com.inin.analytics.elasticsearch.BaseESReducer;
 import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategyV1;
 
-
-public class ExampleJobPrep implements Tool {
-	private Configuration conf;
+/**
+ * Sample hadoop job for taking data from GenerateData.java and writes it out
+ * into a format suitable for ExampleIndexingJob.java 
+ */
+public class ExampleJobPrep  implements Tool {
+	private static Configuration conf;
 	private static final String INDEX_TYPE = "conversation";
 	private static final String INDEX_SUFFIX_CONFIG = "indexSuffixConfigKey";
-	
+
 	private static final String NUM_SHARDS_PER_CUSTOMER = "numShardsPerCustomer";
 	private static final String NUM_SHARDS = "numShards";
 
-	public static class SegmentMapper implements Mapper <LongWritable, Text, Text, Text> {
+	public static class DocMapper extends Mapper <LongWritable, Text, Text, Text> {
 		private ElasticsearchRoutingStrategy elasticsearchRoutingStrategy;
-		
-		public void configure(JobConf job) {
-			Integer numShardsPerOrg = job.getInt(NUM_SHARDS_PER_CUSTOMER, 1);
-			Integer numShards = job.getInt(NUM_SHARDS, 1);
-			
+
+		@Override
+		protected void setup(Context context) throws IOException, InterruptedException {
+			Integer numShardsPerOrg = context.getConfiguration().getInt(NUM_SHARDS_PER_CUSTOMER, 1);
+			Integer numShards = context.getConfiguration().getInt(NUM_SHARDS, 1);
+
 			RotatedIndexMetadata indexMetadata = new RotatedIndexMetadata();
 			indexMetadata.setNumShards(numShards);
 			indexMetadata.setNumShardsPerOrg(numShardsPerOrg);
@@ -47,70 +47,75 @@ public class ExampleJobPrep implements Tool {
 			elasticsearchRoutingStrategy.configure(indexMetadata);
 		}
 
-		public void map(LongWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+		@Override
+		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			String[] csv = StringUtils.split(value.toString(), ",");
 			String docId = csv[1];
 			String customerId = csv[0];
 			String json = "{\"customerId\":\"" + customerId + "\",\"color\":\"" + csv[2] + "\",\"id\":\"" + docId + "\",\"description\":\"" + csv[3] + "\"}";
 			String routingHash = elasticsearchRoutingStrategy.getRoutingHash(customerId, docId);
 
-			output.collect(new Text(INDEX_TYPE + BaseESReducer.TUPLE_SEPARATOR + routingHash), new Text(INDEX_TYPE + BaseESReducer.TUPLE_SEPARATOR + customerId + BaseESReducer.TUPLE_SEPARATOR + json));
+			Text outputKey = new Text(INDEX_TYPE + BaseESReducer.TUPLE_SEPARATOR + routingHash);
+			Text outputValue = new Text(INDEX_TYPE + BaseESReducer.TUPLE_SEPARATOR + customerId + BaseESReducer.TUPLE_SEPARATOR + json);
+			context.write(outputKey, outputValue);
 		} 
-
-		public void close() throws IOException {
-		}
 	}
 
-	public int run(String[] args) throws Exception {
+	public static boolean main(String[] args) throws Exception {
 		if(args.length != 5) {
 			System.err.println("Invalid # arguments. EG: loadES [pipe separated paths to source files containing segments & properties] [output location] [index name suffix] [numShardsPerIndex] [maxNumShardsPerCustomer (for routing)]");
-			return -1;
 		}
-		
+
 		String inputs = args[0];
 		String output = args[1];
 		String indexSuffix = args[2];
 		Integer numShards = new Integer(args[3]);
 		Integer numShardsPerCustomer = new Integer(args[4]);
-		
-		JobConf job = new JobConf(conf, ExampleJobPrep.class);
-		job.setJobName("Segment Data Elastic Search Bulk Loader Prep Job");
-		job.setInputFormat(TextInputFormat.class);
-		job.setOutputFormat(SequenceFileOutputFormat.class);
-		job.setMapperClass(SegmentMapper.class);
-		job.setMapOutputValueClass(Text.class);
-		job.setMapOutputKeyClass(Text.class);
+
+		conf = new Configuration();
+		Job job = Job.getInstance(conf, "Prep example");
+		job.setJarByClass(ExampleJobPrep.class);
+		job.setMapperClass(DocMapper.class);
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(Text.class);
-		
-		// No reducer required for this example
+		job.setInputFormatClass(TextInputFormat.class);
+		job.setOutputFormatClass(SequenceFileOutputFormat.class);
+
 		job.setNumReduceTasks(0);
-		job.set(INDEX_SUFFIX_CONFIG, indexSuffix);
-		job.set(NUM_SHARDS_PER_CUSTOMER, numShardsPerCustomer.toString());
-		job.set(NUM_SHARDS, numShards.toString());
+
+		job.getConfiguration().set(INDEX_SUFFIX_CONFIG, indexSuffix);
+		job.getConfiguration().set(NUM_SHARDS_PER_CUSTOMER, numShardsPerCustomer.toString());
+		job.getConfiguration().set(NUM_SHARDS, numShards.toString());
 
 		FileOutputFormat.setOutputPath(job, new Path(output));
 
 		// Set up inputs
 		String[]inputFolders = StringUtils.split(inputs, "|");
 		for(String input : inputFolders) {
-			FileInputFormat.addInputPath(job, new Path(input));
+			FileInputFormat.addInputPath(job, new Path(input));	
 		}
 
-		JobClient.runJob(job);
-		return 0;
+		return job.waitForCompletion(true);
 	}
 
-	public static void main(String[] args) throws Exception {
-		ToolRunner.run(new Configuration(), new ExampleJobPrep(), args);
+	@Override
+	public void setConf(Configuration conf) {
+		this.conf = conf;
 	}
 
+	@Override
 	public Configuration getConf() {
 		return conf;
 	}
 
-	public void setConf(Configuration conf) {
-		this.conf = conf;
+	@Override
+	public int run(String[] args) throws Exception {
+		boolean success = ExampleJobPrep.main(args);
+		if(success) {
+			return 0;
+		} else {
+			return 1;
+		}
 	}
 
 }

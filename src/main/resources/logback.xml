@@ -1,25 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="service.name" value="elasticsearch-lambda" />
+
+    <property name="service.name" value="analytics-hadoop" />
     <property name="log.dir" value="${LOG_DIR:-/var/log/inin}" />
+
     <logger name="org.apache.hadoop.security.UserGroupInformation" level="INFO" />
     <logger name="com.netflix.config" level="WARN" />
+    <logger name="org.apache.cassandra" level="WARN" />
 	<logger name="org.apache.zookeeper" level="WARN" />
-	<logger name="com.inin.analytics" level="WARN" />
-	
-    <property name="default.mdc.format" value="%X{organization}|%X{userid}|%X{correlationId}"/>
-    <property name="format.suffix" value="${mdc.format:-${default.mdc.format}}|%thread|%logger{15}"/>
-
-    <!-- Human readable rolling log file for debugging purposes. -->
-    <appender name="service"
-              class="ch.qos.logback.core.FileAppender">
-        <file>${log.dir}/${service.name}.log</file>
-        <encoder>
-            <immediateFlush>true</immediateFlush>
-            <pattern>%date{MMMdd HH:mm:ss.SSS, America/New_York}|%.-1level| %msg |${format.suffix}%n</pattern>
-            <outputPatternAsHeader>true</outputPatternAsHeader>
-        </encoder>
-    </appender>
+	<logger name="me.prettyprint.cassandra" level="WARN" />
+    <logger name="org.apache.cassandra" level="WARN" />
+    <logger name="com.inin.analytics" level="WARN" />
+    <logger name="com.inin.analytics.hadoop" level="INFO" />
     
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -29,5 +21,6 @@
     
     <root level="info">
         <appender-ref ref="STDOUT" />
+        <appender-ref ref="service" />
     </root>
 </configuration>

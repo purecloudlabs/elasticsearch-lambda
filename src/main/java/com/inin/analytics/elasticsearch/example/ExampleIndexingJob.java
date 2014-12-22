@@ -11,7 +11,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 
 import com.inin.analytics.elasticsearch.BaseESMapper;
 import com.inin.analytics.elasticsearch.ConfigParams;
@@ -19,8 +18,8 @@ import com.inin.analytics.elasticsearch.IndexingPostProcessor;
 
 public class ExampleIndexingJob implements Tool {
 
-	private Configuration conf;
-	public int run(String[] args) throws Exception {
+	private static Configuration conf;
+	public static int main(String[] args) throws Exception {
 		if(args.length != 9) {
 			System.err.println("Invalid # arguments. EG: loadES [pipe separated input] [snapshot working directory (fs/nfs)] [snapshot final destination (s3/nfs/hdfs)] [snapshot repo name] [elasticsearch working data location] [num reducers] [num shards per index] [ES batch commit size] [manifest location]");
 			return -1;
@@ -39,6 +38,7 @@ public class ExampleIndexingJob implements Tool {
 		// Remove trailing slashes from the destination 
 		snapshotFinalDestination = StringUtils.stripEnd(snapshotFinalDestination, "/");
 
+		conf = new Configuration();
 		conf.set(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString(), snapshotWorkingLocation);
 		conf.set(ConfigParams.SNAPSHOT_FINAL_DESTINATION.toString(), snapshotFinalDestination);
 		conf.set(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString(), snapshotRepoName);
@@ -74,16 +74,19 @@ public class ExampleIndexingJob implements Tool {
 		return 0;
 	}
 
-	public static void main(String[] args) throws Exception {
-		ToolRunner.run(new Configuration(), new ExampleIndexingJob(), args);
+	@Override
+	public void setConf(Configuration conf) {
+		this.conf = conf;
 	}
 
+	@Override
 	public Configuration getConf() {
 		return conf;
 	}
 
-	public void setConf(Configuration conf) {
-		this.conf = conf;
+	@Override
+	public int run(String[] args) throws Exception {
+		return ExampleIndexingJob.main(args);
 	}
 
 }
