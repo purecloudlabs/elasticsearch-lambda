@@ -5,8 +5,10 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0</version>
 	<name>elasticsearch-lambda</name>
+	<description>Framework For Lambda Architecture on Elasticsearch</description>
+	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java-version>1.7</java-version>
@@ -28,6 +30,19 @@
 		<slf4j.version>1.7.5</slf4j.version>
 		<org.apache.avro.version>1.7.5</org.apache.avro.version>
 	</properties>
+	
+	<licenses>
+  		<license>
+    		<name>The Apache License, Version 2.0</name>
+    		<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+  		</license>
+	</licenses>
+	
+	<scm>
+  		<connection>https://github.com/drewdahlke/elasticsearch-lambda.git</connection>
+  		<developerConnection>https://github.com/drewdahlke/elasticsearch-lambda.git</developerConnection>
+  		<url>https://github.com/drewdahlke/elasticsearch-lambda.git</url>
+	</scm>	
 
 	<!--External Repositories -->
 	<repositories>
@@ -366,6 +381,21 @@
 		</dependency>
 	</dependencies>
 
+ 	<developers>
+    	<developer>
+      		<name>Drew Dahlke</name>
+      		<email>justin.dahlke@gmail.com</email>
+      		<organization>Interactive Intelligence</organization>
+      		<organizationUrl>http://www.inin.com</organizationUrl>
+    	</developer>
+    	<developer>
+      		<name>Michael Mulligan</name>
+      		<email>Michael.Mulligan@inin.com</email>
+      		<organization>Interactive Intelligence</organization>
+      		<organizationUrl>http://www.inin.com</organizationUrl>
+    	</developer>
+  	</developers>
+  	
 	<build>
 		<plugins>
 			<plugin>
