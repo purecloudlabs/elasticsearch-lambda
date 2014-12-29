@@ -43,7 +43,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 	 * should be left alone for a couple days before we start swapping them out. Thus our rotation lag. 2 = only
 	 * swap out indexes older than 2 days. 
 	 * 
-	 * TODO: Consider moving this into ZK so we can start using today's indexes in the case of an emergency. 
+	 * TODO: Move this into zookeeper 
 	 */
 	private int ROTATION_LAG_DAYS = 2;
 

@@ -1,9 +1,14 @@
 package com.inin.analytics.elasticsearch.example;
 
-import java.io.PrintWriter;
 import java.util.UUID;
 
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.Text;
 
 public class GenerateData {
 	
@@ -14,11 +19,16 @@ public class GenerateData {
 		}
 
 		Long numRecords = new Long(args[0]);
-		PrintWriter writer = new PrintWriter(args[1], "UTF-8");
+		
 		String attribute = null;
 		String customer = null;
 		String customer1 = UUID.randomUUID().toString();
 		String customer2 = UUID.randomUUID().toString();
+		
+		Configuration config = new Configuration();     
+		FileSystem fs = FileSystem.get(config); 
+		Path filenamePath = new Path(args[1]);  
+		SequenceFile.Writer inputWriter = new SequenceFile.Writer(fs, config, filenamePath, LongWritable.class, Text.class);
 
 		for(Long x = 0l; x < numRecords; x++) {
 			if(x % 2 == 0) {
@@ -33,9 +43,9 @@ public class GenerateData {
 				customer = customer2;
 			}
 			
-			writer.println(customer + "," + UUID.randomUUID().toString() + "," + attribute + "," + RandomStringUtils.randomAlphanumeric(15));
+			inputWriter.append(new LongWritable(x), new Text(customer + "," + UUID.randomUUID().toString() + "," + attribute + "," + RandomStringUtils.randomAlphanumeric(15)));
 		}
 		
-		writer.close();
+		inputWriter.close();
 	}
 }
