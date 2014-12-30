@@ -28,14 +28,14 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 	protected abstract String getBaseZnode();
 	protected abstract String getRebuildStateZnode();
 	
-	private CuratorFramework curator;
+	protected CuratorFramework curator;
 	
-	private static transient Logger logger = LoggerFactory.getLogger(ElasticsearchRotationStrategyZookeeper.class);
-	private Map<String, NodeCache> indexNameCache = new HashMap<>();
-	private NodeCache rebuildStateCache;
-	private Gson gson = GsonFactory.buildGsonBuilder().create();
-	private static final String FAIL_MESSAGE = "Failed getting routing strategy from zookeeper for ";
-	private Listenable<ConnectionStateListener> connectionStateListener;
+	protected static transient Logger logger = LoggerFactory.getLogger(ElasticsearchRotationStrategyZookeeper.class);
+	protected Map<String, NodeCache> indexNameCache = new HashMap<>();
+	protected NodeCache rebuildStateCache;
+	protected Gson gson = GsonFactory.buildGsonBuilder().create();
+	protected static final String FAIL_MESSAGE = "Failed getting routing strategy from zookeeper for ";
+	protected Listenable<ConnectionStateListener> connectionStateListener;
 	
 	
 	/**
@@ -45,7 +45,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 	 * 
 	 * TODO: Move this into zookeeper 
 	 */
-	private int ROTATION_LAG_DAYS = 2;
+	protected int ROTATION_LAG_DAYS = 2;
 
 	public void setCurator(CuratorFramework curator) {
 		this.curator = curator;
@@ -122,7 +122,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 		}
 	}
 	
-	private RotatedIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth) {
+	protected RotatedIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth) {
 		String znode = getBaseZnode() + indexNameAtBirth;
 		try {
 			if(!indexNameCache.containsKey(indexNameAtBirth)) {
@@ -162,7 +162,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 		if(rotatedIndexMetadata != null && !indexDate.isAfter(now.minusDays(ROTATION_LAG_DAYS).toLocalDate())) {
 			ElasticsearchRoutingStrategy strategy;
 			try {
-				strategy = (ElasticsearchRoutingStrategy) Class.forName(rotatedIndexMetadata.getRoutingStrategyClassName()).newInstance();
+				strategy = (ElasticsearchRoutingStrategy) Class.forName(rotatedIndexMetadata.getRoutingStrategyClassName(), true, ClassLoader.getSystemClassLoader()).newInstance();
 				strategy.configure(rotatedIndexMetadata);
 				return strategy;
 			} catch (InstantiationException e) {

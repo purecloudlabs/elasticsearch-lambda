@@ -3,10 +3,9 @@ package com.inin.analytics.elasticsearch.index.routing;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.hadoop.util.hash.MurmurHash;
-
 import com.google.common.base.Preconditions;
 import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
+import com.inin.analytics.elasticsearch.util.MurmurHash;
 
 
 /**
@@ -39,8 +38,6 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 	private int numShardsPerOrg;
 	private int numShards;
 	private Map<Integer, Integer> shardToRout = new HashMap<>();
-	MurmurHash hasher = new MurmurHash();
-
 
 	/**
 	 * Adapted from DjbHashFunction & PlainOperationRouting in Elasticsearch. This is the default hashing 
@@ -117,7 +114,7 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 	public String getRoutingHash(String orgId, String convId) {
 		Preconditions.checkArgument(numShards >= numShardsPerOrg, "Misconfigured, numShards must be >= numShardsPerOrg");
 		int orgIdHash = getOrgIdHash(orgId, numShards);
-		int convIdHash = Math.abs(hasher.hash(convId.getBytes(), 0)) % numShardsPerOrg;
+		int convIdHash = Math.abs(MurmurHash.getInstance().hash(convId.getBytes(), 0)) % numShardsPerOrg;
 
 		int shard = orgIdHash + convIdHash;
 		while(shard >= numShards) {
@@ -151,7 +148,7 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 	}
 
 	private int getOrgIdHash(String orgId, int numShards) {
-		return Math.abs(hasher.hash(orgId.getBytes(), 0)) % numShards;
+		return Math.abs(MurmurHash.getInstance().hash(orgId.getBytes(), 0)) % numShards;
 	}
 
 }

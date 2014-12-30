@@ -34,6 +34,14 @@ By making reducers only responsible for a single shard worth of data at a time, 
 
 After indexes have been generated they can be loaded in using the snapshot restore functionality built into Elasticsearch. The index promotion process maintains state in Zookeeper. This is in the process of being open sourced.
 
+## Maven
+
+<dependency>
+<artifactId>elasticsearch-lambda</artifactId>
+<groupId>com.inin.analytics</groupId>
+<version>1.0.1</version>
+</dependency>
+
 
 ## EMR Example Steps
 
