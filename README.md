@@ -36,6 +36,12 @@ After indexes have been generated they can be loaded in using the snapshot resto
 
 ## Maven
 
+<repository>
+<id>oss-sonatype</id>
+<name>oss-sonatype</name>
+<url>https://oss.sonatype.org/content/groups/public/</url>
+</repository>
+
 <dependency>
 <artifactId>elasticsearch-lambda</artifactId>
 <groupId>com.inin.analytics</groupId>
