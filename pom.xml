@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0.3</version>
+	<version>1.0.4</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
@@ -137,6 +137,14 @@
 				<exclusion>
 					<groupId>org.javassist</groupId>
 					<artifactId>javassist</artifactId>
+				</exclusion>
+				<exclusion>
+				    <artifactId>slf4j-log4j12</artifactId>
+				    <groupId>org.slf4j</groupId>
+				</exclusion>
+				<exclusion>
+				    <artifactId>log4j</artifactId>
+				    <groupId>log4j</groupId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -276,11 +284,6 @@
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.5</version>
 		</dependency>
-		<dependency>
-			<artifactId>slf4j-log4j12</artifactId>
-			<groupId>org.slf4j</groupId>
-			<version>1.7.5</version>
-		</dependency>
 
 
 		<dependency>
@@ -348,6 +351,14 @@
 					<artifactId>avro</artifactId>
 					<groupId>org.apache.avro</groupId>
 				</exclusion>
+				<exclusion>
+				    <artifactId>slf4j-log4j12</artifactId>
+				    <groupId>org.slf4j</groupId>
+				</exclusion>
+				<exclusion>
+				    <artifactId>log4j</artifactId>
+				    <groupId>log4j</groupId>
+				</exclusion>
 			</exclusions>
 			<scope>provided</scope>
 		</dependency>
@@ -372,6 +383,14 @@
 					<artifactId>avro</artifactId>
 					<groupId>org.apache.avro</groupId>
 				</exclusion>
+				<exclusion>
+				    <artifactId>slf4j-log4j12</artifactId>
+				    <groupId>org.slf4j</groupId>
+				</exclusion>
+				<exclusion>
+				    <artifactId>log4j</artifactId>
+				    <groupId>log4j</groupId>
+				</exclusion>
 			</exclusions>
 			<scope>provided</scope>
 		</dependency>
@@ -391,6 +410,10 @@
 				<exclusion>
 					<artifactId>jackson-mapper-asl</artifactId>
 					<groupId>org.codehaus.jackson</groupId>
+				</exclusion>
+				<exclusion>
+				    <artifactId>log4j</artifactId>
+				    <groupId>log4j</groupId>
 				</exclusion>
 			</exclusions>
 			<scope>provided</scope>
