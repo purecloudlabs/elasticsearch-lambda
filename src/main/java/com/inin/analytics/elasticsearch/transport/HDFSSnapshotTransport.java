@@ -1,5 +1,6 @@
 package com.inin.analytics.elasticsearch.transport;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.apache.commons.lang.StringUtils;
@@ -76,8 +77,8 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 		ensurePathExists(destination);
 		try{
 			hdfsFileSystem.copyFromLocalFile(false, true, new Path(localShardPath), new Path(destination));	
-		} catch(IOException e) {
-			throw new IOException("Exception copying " + localShardPath + " to " + destination, e);
+		} catch(FileNotFoundException e) {
+			throw new FileNotFoundException("Exception copying " + localShardPath + " to " + destination);
 		} 
 	}
 
