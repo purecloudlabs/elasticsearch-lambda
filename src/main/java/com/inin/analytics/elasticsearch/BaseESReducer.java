@@ -1,5 +1,6 @@
 package com.inin.analytics.elasticsearch;
 
+import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
@@ -59,6 +60,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		numShardsPerIndex = new Integer(job.get(ConfigParams.NUM_SHARDS_PER_INDEX.toString()));
 		esBatchCommitSize = new Integer(job.get(ConfigParams.ES_BATCH_COMMIT_SIZE.toString()));
 	}
+	
 
 	private void init(String index) {
 		String templateName = getTemplateName();
@@ -79,7 +81,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		esEmbededContainer = builder.build();
 		
 		// Create index
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
+		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder().put("index.number_of_replicas", 0)).get();
 	}
 	
 	/**
