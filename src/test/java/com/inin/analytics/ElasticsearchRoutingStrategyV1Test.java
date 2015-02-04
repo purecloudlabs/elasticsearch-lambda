@@ -9,7 +9,7 @@ import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ESIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategyV1;
 
 public class ElasticsearchRoutingStrategyV1Test {
@@ -53,7 +53,7 @@ public class ElasticsearchRoutingStrategyV1Test {
 	
 	@Test
 	public void testOrgOn7ShardsHashes() {
-		RotatedIndexMetadata indexMetadata = new RotatedIndexMetadata();
+		ESIndexMetadata indexMetadata = new ESIndexMetadata();
 		indexMetadata.setNumShards(10);
 		indexMetadata.setNumShardsPerOrg(7);
 		
@@ -81,7 +81,7 @@ public class ElasticsearchRoutingStrategyV1Test {
 	
 	@Test
 	public void testOrgOn1ShardsHashes() {
-		RotatedIndexMetadata indexMetadata = new RotatedIndexMetadata();
+		ESIndexMetadata indexMetadata = new ESIndexMetadata();
 		indexMetadata.setNumShards(5);
 		indexMetadata.setNumShardsPerOrg(1);
 
@@ -107,7 +107,7 @@ public class ElasticsearchRoutingStrategyV1Test {
 	
 	@Test
 	public void testOrgDistribution() {
-		RotatedIndexMetadata indexMetadata = new RotatedIndexMetadata();
+		ESIndexMetadata indexMetadata = new ESIndexMetadata();
 		indexMetadata.setNumShards(5);
 		indexMetadata.setNumShardsPerOrg(1);
 		ElasticsearchRoutingStrategyV1 strategy = new ElasticsearchRoutingStrategyV1();

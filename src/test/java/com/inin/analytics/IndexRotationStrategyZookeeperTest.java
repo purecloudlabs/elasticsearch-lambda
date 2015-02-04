@@ -18,9 +18,9 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import com.inin.analytics.elasticsearch.index.rotation.ExampleElasticsearchIndexRotationStrategyZookeeper;
 import com.inin.analytics.elasticsearch.index.rotation.RebuildPipelineState;
-import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
-import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
+import com.inin.analytics.elasticsearch.index.rotation.ESIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategyV1;
+import com.inin.analytics.elasticsearch.index.selector.RealtimeIndexSelectionStrategyLagged;
 
 
 @RunWith(MockitoJUnitRunner.class)
@@ -55,24 +55,25 @@ public class IndexRotationStrategyZookeeperTest {
 	public final void testRegisterAndGet() throws Exception {
 		DateTime now = new DateTime();
 					
-		RotatedIndexMetadata metaData = new RotatedIndexMetadata();
+		ESIndexMetadata metaData = new ESIndexMetadata();
 		metaData.setIndexNameAtBirth("a");
 		metaData.setNumShardsPerOrg(2);
 		metaData.setRebuiltIndexAlias("b");
+		metaData.setRebuiltIndexName("b");
+		
 		metaData.setRoutingStrategyClassName(ElasticsearchRoutingStrategyV1.class.getName());
 		rotation.registerIndexAvailableOnRotation(metaData);
 
 		// NodeCache curator recipe is async so we loop for up to 1sec waiting for the watcher to react. Polling sucks, but it beats Thread.sleep(1000) and generally happens in a few ms.
 		long timer = System.currentTimeMillis();
 		while(true) {
-			assertEquals(rotation.getIndex("c", now.minusDays(10).toLocalDate()), "c");
-			String index = rotation.getIndex("a", now.minusDays(10).toLocalDate());
-			if(index.equals("b")) {
+			ESIndexMetadata readMetaData = rotation.getRotatedIndexMetadata(metaData.getIndexNameAtBirth());
+			assertEquals(readMetaData.getIndexNameAtBirth(), metaData.getIndexNameAtBirth());
+			
+			
+			if(readMetaData.getRebuiltIndexName() != null) {
 				// Assert that rotation lag is accounted for
-				assertEquals(rotation.getIndex("a", now.toLocalDate()), "a");
-				assertEquals(rotation.getIndex("a", now.minusDays(1).toLocalDate()), "a");
-				assertEquals(rotation.getIndex("a", now.minusDays(2).toLocalDate()), "b");
-				assertEquals(rotation.getIndex("a", now.minusDays(3).toLocalDate()), "b");
+				assertEquals(readMetaData.getRebuiltIndexName(), metaData.getRebuiltIndexName());
 
 				break;
 			}
@@ -80,8 +81,37 @@ public class IndexRotationStrategyZookeeperTest {
 				fail("NodeCache failed to update with latest value in a reasonable amount of time");
 			}
 		}
-		ElasticsearchRoutingStrategy strategy = rotation.getRoutingStrategy(metaData.getIndexNameAtBirth(), now.minusDays(10).toLocalDate());
-		assertEquals(strategy.getNumShardsPerOrg(), metaData.getNumShardsPerOrg());
+	}
+	
+	@Test
+	public void testRealtimeIndexSelectionStrategyLagged() {
+		DateTime now = new DateTime();
+		ESIndexMetadata metaData = new ESIndexMetadata();
+		metaData.setIndexNameAtBirth("a");
+		metaData.setNumShardsPerOrg(2);
+		metaData.setRebuiltIndexAlias("b");
+		metaData.setRebuiltIndexName("bb");
+		metaData.setRoutingStrategyClassName(ElasticsearchRoutingStrategyV1.class.getName());
+		
+		RealtimeIndexSelectionStrategyLagged strategy = new RealtimeIndexSelectionStrategyLagged(2);
+		metaData.setDate(now.toLocalDate());
+		assertEquals(strategy.getIndexReadable(metaData), "a");
+		assertEquals(strategy.getIndexWritable(metaData), "a");
+
+		metaData.setDate(now.minusDays(1).toLocalDate());
+		assertEquals(strategy.getIndexReadable(metaData), "a");
+		assertEquals(strategy.getIndexWritable(metaData), "a");
+
+		metaData.setDate(now.minusDays(2).toLocalDate());
+		assertEquals(strategy.getIndexReadable(metaData), "b");
+		assertEquals(strategy.getIndexWritable(metaData), "bb");
+
+		metaData.setDate(now.minusDays(3).toLocalDate());
+		assertEquals(strategy.getIndexReadable(metaData), "b");
+		assertEquals(strategy.getIndexWritable(metaData), "bb");
+		
+		metaData.setRebuiltIndexName(null);
+		assertEquals(strategy.getIndexWritable(metaData), "a");
 	}
 	
 	@Test

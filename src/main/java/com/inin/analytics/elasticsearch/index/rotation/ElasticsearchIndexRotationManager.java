@@ -13,15 +13,13 @@ import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrate
  * @author drew
  *
  */
-public interface ElasticsearchIndexRotationStrategy {
-	// Get the index that holds data for this date
-	String getIndex(String indexNameAtBirth, LocalDate localDate);
+public interface ElasticsearchIndexRotationManager {
+	
+	ESIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth);
 	
 	// This index has jumped no the rebuild train and can serve requests
-	void registerIndexAvailableOnRotation(RotatedIndexMetadata rotatedIndexMetadata);
+	void registerIndexAvailableOnRotation(ESIndexMetadata rotatedIndexMetadata);
 	
-	// Get the routing strategy that was applied to the index when it was built 
-	ElasticsearchRoutingStrategy getRoutingStrategy(String indexNameAtBirth, LocalDate indexDate);
 	
 	// Register that the pipeline is rebuilding indexes
 	void updateRebuildPipelineState(RebuildPipelineState state);
