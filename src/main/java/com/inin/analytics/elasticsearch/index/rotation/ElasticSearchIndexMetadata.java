@@ -9,7 +9,7 @@ import org.joda.time.LocalDate;
  * @author drew
  *
  */
-public class ESIndexMetadata {
+public class ElasticSearchIndexMetadata {
 
 	/**
 	 * Name of the index when it was first created

@@ -18,7 +18,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import com.inin.analytics.elasticsearch.index.rotation.ExampleElasticsearchIndexRotationStrategyZookeeper;
 import com.inin.analytics.elasticsearch.index.rotation.RebuildPipelineState;
-import com.inin.analytics.elasticsearch.index.rotation.ESIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ElasticSearchIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategyV1;
 import com.inin.analytics.elasticsearch.index.selector.RealtimeIndexSelectionStrategyLagged;
 
@@ -55,7 +55,7 @@ public class IndexRotationStrategyZookeeperTest {
 	public final void testRegisterAndGet() throws Exception {
 		DateTime now = new DateTime();
 					
-		ESIndexMetadata metaData = new ESIndexMetadata();
+		ElasticSearchIndexMetadata metaData = new ElasticSearchIndexMetadata();
 		metaData.setIndexNameAtBirth("a");
 		metaData.setNumShardsPerOrg(2);
 		metaData.setRebuiltIndexAlias("b");
@@ -67,7 +67,7 @@ public class IndexRotationStrategyZookeeperTest {
 		// NodeCache curator recipe is async so we loop for up to 1sec waiting for the watcher to react. Polling sucks, but it beats Thread.sleep(1000) and generally happens in a few ms.
 		long timer = System.currentTimeMillis();
 		while(true) {
-			ESIndexMetadata readMetaData = rotation.getRotatedIndexMetadata(metaData.getIndexNameAtBirth());
+			ElasticSearchIndexMetadata readMetaData = rotation.getElasticSearchIndexMetadata(metaData.getIndexNameAtBirth());
 			assertEquals(readMetaData.getIndexNameAtBirth(), metaData.getIndexNameAtBirth());
 			
 			
@@ -86,7 +86,7 @@ public class IndexRotationStrategyZookeeperTest {
 	@Test
 	public void testRealtimeIndexSelectionStrategyLagged() {
 		DateTime now = new DateTime();
-		ESIndexMetadata metaData = new ESIndexMetadata();
+		ElasticSearchIndexMetadata metaData = new ElasticSearchIndexMetadata();
 		metaData.setIndexNameAtBirth("a");
 		metaData.setNumShardsPerOrg(2);
 		metaData.setRebuiltIndexAlias("b");

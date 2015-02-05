@@ -6,7 +6,7 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.inin.analytics.elasticsearch.index.rotation.ESIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ElasticSearchIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 
 
@@ -36,7 +36,7 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 		LAG = lAG;
 	}
 
-	public ElasticsearchRoutingStrategy get(ESIndexMetadata rotatedIndexMetadata) {
+	public ElasticsearchRoutingStrategy get(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		
 		DateTime now = new DateTime();
 		if(rotatedIndexMetadata != null && rotatedIndexMetadata.getRoutingStrategyClassName() != null && !rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate())) {
@@ -66,9 +66,9 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 	 * @param indices
 	 * @return
 	 */
-	public ElasticsearchRoutingStrategy getRoutingStrategyForIndicies(List<ESIndexMetadata> indices) {
+	public ElasticsearchRoutingStrategy getRoutingStrategyForIndicies(List<ElasticSearchIndexMetadata> indices) {
 		ElasticsearchRoutingStrategy routingStrategy = null;
-		for(ESIndexMetadata index : indices) {
+		for(ElasticSearchIndexMetadata index : indices) {
 			if(index.getRoutingStrategyClassName() == null) {
 				// If the routing strategy isn't set, then there can be no common strategy
 				routingStrategy = null;
@@ -86,7 +86,7 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 		return routingStrategy;
 	}
 
-	public String getIndexWritable(ESIndexMetadata rotatedIndexMetadata) {
+	public String getIndexWritable(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		DateTime now = new DateTime();
 		if(rotatedIndexMetadata.getRebuiltIndexName() == null || (rotatedIndexMetadata.getDate() != null && rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate()))) {
 			// Only use rotated indexes for data that's ROTATION_LAG_DAYS old
@@ -100,7 +100,7 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 	 * When reading from ES, searches may hit many indexes. To help avoid hitting the URL size limit
 	 * when doing searches that hit a large # of indexes, we alias them with something short. 
 	 */
-	public String getIndexReadable(ESIndexMetadata rotatedIndexMetadata) {
+	public String getIndexReadable(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		DateTime now = new DateTime();
 		if(rotatedIndexMetadata.getRebuiltIndexAlias() == null || (rotatedIndexMetadata.getDate() != null && rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate()))) {
 			// Only use rotated indexes for data that's ROTATION_LAG_DAYS old

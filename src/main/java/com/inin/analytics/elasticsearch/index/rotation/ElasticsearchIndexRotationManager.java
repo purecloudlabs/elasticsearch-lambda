@@ -1,8 +1,5 @@
 package com.inin.analytics.elasticsearch.index.rotation;
 
-import org.joda.time.LocalDate;
-
-import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 
 /**
  * Swapping rebuilt indexes into an ES cluster with zero downtime requires holding 
@@ -15,15 +12,33 @@ import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrate
  */
 public interface ElasticsearchIndexRotationManager {
 	
-	ESIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth);
+	/**
+	 * Look up meta data for an index based on the original name it was created with
+	 * @param indexNameAtBirth
+	 * @return
+	 */
+	ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth);
 	
-	// This index has jumped no the rebuild train and can serve requests
-	void registerIndexAvailableOnRotation(ESIndexMetadata rotatedIndexMetadata);
+	/**
+	 * Once a rebuilt index has been loaded into ElasticSearch, this registers the metadata
+	 * with zookeeper so that other parts of the system know they can start using the new index. 
+	 * @param rotatedIndexMetadata
+	 */
+	void registerIndexAvailableOnRotation(ElasticSearchIndexMetadata rotatedIndexMetadata);
 	
 	
-	// Register that the pipeline is rebuilding indexes
+	/**
+	 * Optional: When rebuilding indexes, hold onto the state of the rebuild process. This is 
+	 * useful if you wish to defer writes to an index being rebuilt until it's done and swapped in.  
+	 *  
+	 * @param state
+	 */
 	void updateRebuildPipelineState(RebuildPipelineState state);
 	
-	// Get the state of index rebuilding. This might be useful if you wish to defer writes during an index rebuild.
+	/**
+	 * Get the current state of the index rebuild process. Again, this is optional and relies on updateRebuildPipelineState being used.
+	 * 
+	 * @return
+	 */
 	RebuildPipelineState getRebuildPipelineState();
 }

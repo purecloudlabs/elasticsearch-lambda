@@ -13,14 +13,11 @@ import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
-import org.joda.time.DateTime;
-import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
-import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 import com.inin.analytics.elasticsearch.util.GsonFactory;
 
 public abstract class ElasticsearchIndexRotationManagerZookeeper implements ElasticsearchIndexRotationManager {
@@ -33,7 +30,7 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 	protected static transient Logger logger = LoggerFactory.getLogger(ElasticsearchIndexRotationManagerZookeeper.class);
 	protected Map<String, NodeCache> indexNameCache = new HashMap<>();
 	protected NodeCache rebuildStateCache;
-	protected Gson gson = GsonFactory.buildGsonBuilder().create();
+	protected Gson gson;
 	protected static final String FAIL_MESSAGE = "Failed getting routing strategy from zookeeper for ";
 	protected Listenable<ConnectionStateListener> connectionStateListener;
 	
@@ -44,20 +41,22 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 	}
 
 	public void init() {
-		Preconditions.checkNotNull(curator);
+		Preconditions.checkNotNull(curator, "curator is a required dependency");
+		gson = GsonFactory.buildGsonBuilder().create();
 
 		// AR-1785 Create watcher to rebuild nodeCache after ZK reconnects from a connection blip 
 		connectionStateListener = curator.getConnectionStateListenable();
 		connectionStateListener.addListener(new ConnectionStateListener() {
 			@Override
-			public void stateChanged(CuratorFramework arg0, ConnectionState state) {
+			public void stateChanged(CuratorFramework curator, ConnectionState state) {
 				if (state.equals(ConnectionState.RECONNECTED) && indexNameCache != null) {
 					for(Entry<String, NodeCache> nodeCachePair : indexNameCache.entrySet()) {
 						try {
+							// nodeCache stops updating after a connection blip nukes its listener. I'd almost consider that a bug in curator, but for now this is the advised workaround.  
 							logger.info("ZK connection reconnect detected, rebuilding curator nodeCache for " + nodeCachePair.getKey());
 							nodeCachePair.getValue().rebuild();
 						} catch (Exception e) {
-							logger.info("Failed to rebuild nodeCache after ZK reconnect ", e);
+							logger.warn("Failed to rebuild nodeCache after ZK reconnect ", e);
 						}
 					}
 				}
@@ -103,7 +102,7 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 	 */
 	
 	@Override
-	public void registerIndexAvailableOnRotation(ESIndexMetadata rotatedIndexMetadata) {
+	public void registerIndexAvailableOnRotation(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		String indexNameZnode = getBaseZnode() + rotatedIndexMetadata.getIndexNameAtBirth();
 		try {
 			ensureNodePathExists(indexNameZnode);
@@ -114,7 +113,7 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 		}
 	}
 	
-	public ESIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth) {
+	public ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth) {
 		String znode = getBaseZnode() + indexNameAtBirth;
 		try {
 			if(!indexNameCache.containsKey(indexNameAtBirth)) {
@@ -123,13 +122,13 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 			ChildData cd = indexNameCache.get(indexNameAtBirth).getCurrentData();
 			
 			if(cd != null) {
-				return gson.fromJson(new String(cd.getData()), ESIndexMetadata.class);
+				return gson.fromJson(new String(cd.getData()), ElasticSearchIndexMetadata.class);
 			}
 		} catch (Exception e) {
-			logger.warn("Error retrieving znode ", e);
+			throw new IllegalStateException("Error retrieving znode, unable to maintain index metadata ", e);
 		}
 
-		ESIndexMetadata metadata = new ESIndexMetadata();
+		ElasticSearchIndexMetadata metadata = new ElasticSearchIndexMetadata();
 		metadata.setIndexNameAtBirth(indexNameAtBirth);
 		return metadata;
 	}
@@ -159,15 +158,15 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 			try {
 				rebuildStateCache.start(true);
 			} catch (Exception e) {
-				logger.error("Unable to get pipeline rebuild state", e);
-				return null;
+				throw new IllegalStateException("Unable to get pipeline rebuild state", e);
 			}
 		}
 		ChildData cd = rebuildStateCache.getCurrentData();
 		if(cd != null) {
 			return RebuildPipelineState.valueOf(new String(cd.getData()));
 		} else {
-			return null;
+			// COMPLETE ~= NOT_RUNNING, so if it's never been ran that's what we default to. At some point we'll want to fix the enum.
+			return RebuildPipelineState.COMPLETE;
 		}
 	}
 

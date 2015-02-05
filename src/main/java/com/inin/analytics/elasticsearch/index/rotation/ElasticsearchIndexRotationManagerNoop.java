@@ -6,7 +6,7 @@ public class ElasticsearchIndexRotationManagerNoop implements ElasticsearchIndex
 
 
 	@Override
-	public void registerIndexAvailableOnRotation(ESIndexMetadata rotatedIndexMetadata) {
+	public void registerIndexAvailableOnRotation(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		
 	}
 
@@ -21,8 +21,8 @@ public class ElasticsearchIndexRotationManagerNoop implements ElasticsearchIndex
 	}
 
 	@Override
-	public ESIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth) {
-		ESIndexMetadata rotatedIndexMetadata = new ESIndexMetadata();
+	public ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth) {
+		ElasticSearchIndexMetadata rotatedIndexMetadata = new ElasticSearchIndexMetadata();
 		rotatedIndexMetadata.setIndexNameAtBirth(indexNameAtBirth);
 		return rotatedIndexMetadata;
 	}

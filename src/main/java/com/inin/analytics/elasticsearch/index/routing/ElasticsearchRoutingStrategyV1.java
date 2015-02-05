@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.base.Preconditions;
-import com.inin.analytics.elasticsearch.index.rotation.ESIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ElasticSearchIndexMetadata;
 import com.inin.analytics.elasticsearch.util.MurmurHash;
 
 
@@ -72,7 +72,7 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 	}
 
 	@Override
-	public void configure(ESIndexMetadata rotatedIndexMetadata) {
+	public void configure(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		Preconditions.checkNotNull(rotatedIndexMetadata.getNumShardsPerOrg(), "Num shards per org must not be null with " + this.getClass().getSimpleName());
 		Preconditions.checkNotNull(rotatedIndexMetadata.getNumShards(), "Num shards must not be null with " + this.getClass().getSimpleName());
 		this.numShardsPerOrg = rotatedIndexMetadata.getNumShardsPerOrg();
