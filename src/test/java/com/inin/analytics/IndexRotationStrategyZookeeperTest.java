@@ -115,6 +115,21 @@ public class IndexRotationStrategyZookeeperTest {
 	}
 	
 	@Test
+	public void testRealtimeIndexSelectionStrategyLagged_BackwardsCompatibility() {
+		DateTime now = new DateTime();
+		ElasticSearchIndexMetadata metaData = new ElasticSearchIndexMetadata();
+		metaData.setIndexNameAtBirth("a");
+		metaData.setNumShardsPerOrg(2);
+		metaData.setRebuiltIndexAlias("b");
+		metaData.setRoutingStrategyClassName(ElasticsearchRoutingStrategyV1.class.getName());
+		
+		RealtimeIndexSelectionStrategyLagged strategy = new RealtimeIndexSelectionStrategyLagged(2);
+		metaData.setDate(now.minusDays(2).toLocalDate());
+		assertEquals(strategy.getIndexReadable(metaData), "b");
+		assertEquals(strategy.getIndexWritable(metaData), "b");
+	}
+	
+	@Test
 	public void testRebuildPipelineStateRunning() {
 		rotation.updateRebuildPipelineState(RebuildPipelineState.RUNNING);
 		assertEquals(rotation.getRebuildPipelineState(), RebuildPipelineState.RUNNING);

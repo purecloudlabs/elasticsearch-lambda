@@ -88,12 +88,18 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 
 	public String getIndexWritable(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		DateTime now = new DateTime();
-		if(rotatedIndexMetadata.getRebuiltIndexName() == null || (rotatedIndexMetadata.getDate() != null && rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate()))) {
+		if(rotatedIndexMetadata.getRebuiltIndexAlias() == null || (rotatedIndexMetadata.getDate() != null && rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate()))) {
 			// Only use rotated indexes for data that's ROTATION_LAG_DAYS old
 			return rotatedIndexMetadata.getIndexNameAtBirth();
 		}
 		
-		return rotatedIndexMetadata.getRebuiltIndexName();
+		if(rotatedIndexMetadata.getRebuiltIndexName() == null) {
+			// For backwards compatibility (we didn't always write the rebuiltIndexName to zookeeper), we'll fall back on the alias
+			return rotatedIndexMetadata.getRebuiltIndexAlias();
+		} 
+
+		// Ideally you write to the index by it's full name
+		return rotatedIndexMetadata.getRebuiltIndexName();	
 	}
 
 	/**
