@@ -111,6 +111,7 @@ public class IndexRotationStrategyZookeeperTest {
 		assertEquals(strategy.getIndexWritable(metaData), "bb");
 		
 		metaData.setRebuiltIndexName(null);
+		metaData.setRebuiltIndexAlias(null);
 		assertEquals(strategy.getIndexWritable(metaData), "a");
 	}
 	
