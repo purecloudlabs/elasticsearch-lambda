@@ -17,7 +17,7 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
 
 import com.inin.analytics.elasticsearch.BaseESReducer;
-import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ElasticSearchIndexMetadata;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategyV1;
 
@@ -41,7 +41,7 @@ public class ExampleJobPrep  implements Tool {
 			Integer numShardsPerOrg = context.getConfiguration().getInt(NUM_SHARDS_PER_CUSTOMER, 1);
 			Integer numShards = context.getConfiguration().getInt(NUM_SHARDS, 1);
 
-			RotatedIndexMetadata indexMetadata = new RotatedIndexMetadata();
+			ElasticSearchIndexMetadata indexMetadata = new ElasticSearchIndexMetadata();
 			indexMetadata.setNumShards(numShards);
 			indexMetadata.setNumShardsPerOrg(numShardsPerOrg);
 			elasticsearchRoutingStrategy = new ElasticsearchRoutingStrategyV1();

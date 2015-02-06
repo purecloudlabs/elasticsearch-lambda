@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.google.common.base.Preconditions;
-import com.inin.analytics.elasticsearch.index.rotation.RotatedIndexMetadata;
+import com.inin.analytics.elasticsearch.index.rotation.ElasticSearchIndexMetadata;
 import com.inin.analytics.elasticsearch.util.MurmurHash;
 
 
@@ -72,7 +72,7 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 	}
 
 	@Override
-	public void configure(RotatedIndexMetadata rotatedIndexMetadata) {
+	public void configure(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		Preconditions.checkNotNull(rotatedIndexMetadata.getNumShardsPerOrg(), "Num shards per org must not be null with " + this.getClass().getSimpleName());
 		Preconditions.checkNotNull(rotatedIndexMetadata.getNumShards(), "Num shards must not be null with " + this.getClass().getSimpleName());
 		this.numShardsPerOrg = rotatedIndexMetadata.getNumShardsPerOrg();
@@ -149,6 +149,31 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 
 	private int getOrgIdHash(String orgId, int numShards) {
 		return Math.abs(MurmurHash.getInstance().hash(orgId.getBytes(), 0)) % numShards;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + numShards;
+		result = prime * result + numShardsPerOrg;
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ElasticsearchRoutingStrategyV1 other = (ElasticsearchRoutingStrategyV1) obj;
+		if (numShards != other.numShards)
+			return false;
+		if (numShardsPerOrg != other.numShardsPerOrg)
+			return false;
+		return true;
 	}
 
 }

@@ -13,59 +13,50 @@ import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
-import org.joda.time.DateTime;
-import org.joda.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
-import com.inin.analytics.elasticsearch.index.routing.ElasticsearchRoutingStrategy;
 import com.inin.analytics.elasticsearch.util.GsonFactory;
 
-public abstract class ElasticsearchRotationStrategyZookeeper implements ElasticsearchIndexRotationStrategy {
+public abstract class ElasticsearchIndexRotationManagerZookeeper implements ElasticsearchIndexRotationManager {
 
 	protected abstract String getBaseZnode();
 	protected abstract String getRebuildStateZnode();
 	
 	protected CuratorFramework curator;
 	
-	protected static transient Logger logger = LoggerFactory.getLogger(ElasticsearchRotationStrategyZookeeper.class);
+	protected static transient Logger logger = LoggerFactory.getLogger(ElasticsearchIndexRotationManagerZookeeper.class);
 	protected Map<String, NodeCache> indexNameCache = new HashMap<>();
 	protected NodeCache rebuildStateCache;
-	protected Gson gson = GsonFactory.buildGsonBuilder().create();
+	protected Gson gson;
 	protected static final String FAIL_MESSAGE = "Failed getting routing strategy from zookeeper for ";
 	protected Listenable<ConnectionStateListener> connectionStateListener;
 	
-	
-	/**
-	 * The hadoop jobs will rebuild all indexes including today's index. In reality yesterday & today's indexes
-	 * should be left alone for a couple days before we start swapping them out. Thus our rotation lag. 2 = only
-	 * swap out indexes older than 2 days. 
-	 * 
-	 * TODO: Move this into zookeeper 
-	 */
-	protected int ROTATION_LAG_DAYS = 2;
+
 
 	public void setCurator(CuratorFramework curator) {
 		this.curator = curator;
 	}
 
 	public void init() {
-		Preconditions.checkNotNull(curator);
+		Preconditions.checkNotNull(curator, "curator is a required dependency");
+		gson = GsonFactory.buildGsonBuilder().create();
 
 		// AR-1785 Create watcher to rebuild nodeCache after ZK reconnects from a connection blip 
 		connectionStateListener = curator.getConnectionStateListenable();
 		connectionStateListener.addListener(new ConnectionStateListener() {
 			@Override
-			public void stateChanged(CuratorFramework arg0, ConnectionState state) {
+			public void stateChanged(CuratorFramework curator, ConnectionState state) {
 				if (state.equals(ConnectionState.RECONNECTED) && indexNameCache != null) {
 					for(Entry<String, NodeCache> nodeCachePair : indexNameCache.entrySet()) {
 						try {
+							// nodeCache stops updating after a connection blip nukes its listener. I'd almost consider that a bug in curator, but for now this is the advised workaround.  
 							logger.info("ZK connection reconnect detected, rebuilding curator nodeCache for " + nodeCachePair.getKey());
 							nodeCachePair.getValue().rebuild();
 						} catch (Exception e) {
-							logger.info("Failed to rebuild nodeCache after ZK reconnect ", e);
+							logger.warn("Failed to rebuild nodeCache after ZK reconnect ", e);
 						}
 					}
 				}
@@ -111,7 +102,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 	 */
 	
 	@Override
-	public void registerIndexAvailableOnRotation(RotatedIndexMetadata rotatedIndexMetadata) {
+	public void registerIndexAvailableOnRotation(ElasticSearchIndexMetadata rotatedIndexMetadata) {
 		String indexNameZnode = getBaseZnode() + rotatedIndexMetadata.getIndexNameAtBirth();
 		try {
 			ensureNodePathExists(indexNameZnode);
@@ -122,7 +113,7 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 		}
 	}
 	
-	protected RotatedIndexMetadata getRotatedIndexMetadata(String indexNameAtBirth) {
+	public ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth) {
 		String znode = getBaseZnode() + indexNameAtBirth;
 		try {
 			if(!indexNameCache.containsKey(indexNameAtBirth)) {
@@ -131,50 +122,17 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 			ChildData cd = indexNameCache.get(indexNameAtBirth).getCurrentData();
 			
 			if(cd != null) {
-				return gson.fromJson(new String(cd.getData()), RotatedIndexMetadata.class);	
-			} 
+				return gson.fromJson(new String(cd.getData()), ElasticSearchIndexMetadata.class);
+			}
 		} catch (Exception e) {
-			logger.warn("Error retrieving znode ", e);
+			throw new IllegalStateException("Error retrieving znode, unable to maintain index metadata ", e);
 		}
-		return null;
-	}
 
-	@Override
-	public String getIndex(String indexNameAtBirth, LocalDate localDate) {
-		DateTime now = new DateTime();
-		if(localDate.isAfter(now.minusDays(ROTATION_LAG_DAYS).toLocalDate())) {
-			// Only use rotated indexes for data that's ROTATION_LAG_DAYS old
-			return indexNameAtBirth;
-		}
-		
-		RotatedIndexMetadata rotatedIndexMetadata = getRotatedIndexMetadata(indexNameAtBirth);
-		if(rotatedIndexMetadata != null) {
-			return rotatedIndexMetadata.getRebuiltIndexAlias();
-		} else {
-			return indexNameAtBirth;	
-		}
+		ElasticSearchIndexMetadata metadata = new ElasticSearchIndexMetadata();
+		metadata.setIndexNameAtBirth(indexNameAtBirth);
+		return metadata;
 	}
 	
-	@Override
-	public ElasticsearchRoutingStrategy getRoutingStrategy(String indexNameAtBirth, LocalDate indexDate) {
-		RotatedIndexMetadata rotatedIndexMetadata = getRotatedIndexMetadata(indexNameAtBirth);
-		DateTime now = new DateTime();
-		if(rotatedIndexMetadata != null && !indexDate.isAfter(now.minusDays(ROTATION_LAG_DAYS).toLocalDate())) {
-			ElasticsearchRoutingStrategy strategy;
-			try {
-				strategy = (ElasticsearchRoutingStrategy) Class.forName(rotatedIndexMetadata.getRoutingStrategyClassName(), true, ClassLoader.getSystemClassLoader()).newInstance();
-				strategy.configure(rotatedIndexMetadata);
-				return strategy;
-			} catch (InstantiationException e) {
-				logger.error(FAIL_MESSAGE + indexNameAtBirth, e);
-			} catch (IllegalAccessException e) {
-				logger.error(FAIL_MESSAGE + indexNameAtBirth, e);
-			} catch (ClassNotFoundException e) {
-				logger.error(FAIL_MESSAGE + indexNameAtBirth, e);
-			}
-		}
-		return null;
-	}
 
 	protected synchronized void createNodeCacheForName(String zkPath, final String indexName) throws Exception {
 		final NodeCache nodeCache = new NodeCache(curator, zkPath);
@@ -200,15 +158,15 @@ public abstract class ElasticsearchRotationStrategyZookeeper implements Elastics
 			try {
 				rebuildStateCache.start(true);
 			} catch (Exception e) {
-				logger.error("Unable to get pipeline rebuild state", e);
-				return null;
+				throw new IllegalStateException("Unable to get pipeline rebuild state", e);
 			}
 		}
 		ChildData cd = rebuildStateCache.getCurrentData();
 		if(cd != null) {
 			return RebuildPipelineState.valueOf(new String(cd.getData()));
 		} else {
-			return null;
+			// COMPLETE ~= NOT_RUNNING, so if it's never been ran that's what we default to. At some point we'll want to fix the enum.
+			return RebuildPipelineState.COMPLETE;
 		}
 	}
 
