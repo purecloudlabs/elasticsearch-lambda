@@ -42,7 +42,7 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 
 	public void init() {
 		Preconditions.checkNotNull(curator, "curator is a required dependency");
-		gson = GsonFactory.buildGsonBuilder().create();
+		gson = GsonFactory.buildGsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
 
 		// AR-1785 Create watcher to rebuild nodeCache after ZK reconnects from a connection blip 
 		connectionStateListener = curator.getConnectionStateListenable();
@@ -122,7 +122,8 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 			ChildData cd = indexNameCache.get(indexNameAtBirth).getCurrentData();
 			
 			if(cd != null) {
-				return gson.fromJson(new String(cd.getData()), ElasticSearchIndexMetadata.class);
+				String json = new String(cd.getData());
+				return gson.fromJson(json, ElasticSearchIndexMetadata.class);
 			}
 		} catch (Exception e) {
 			throw new IllegalStateException("Error retrieving znode, unable to maintain index metadata ", e);
