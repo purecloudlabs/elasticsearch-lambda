@@ -15,7 +15,7 @@ public class DateSerializerTest {
 	@Test
 	public void test() {
 		ElasticSearchIndexMetadata indexMetadata = new ElasticSearchIndexMetadata();
-		indexMetadata.setDate(new LocalDate());
+		indexMetadata.setDate(new LocalDate("2015-02-09"));
 		indexMetadata.setIndexNameAtBirth("test");
 		indexMetadata.setNumShards(2);
 		indexMetadata.setNumShardsPerOrg(3);

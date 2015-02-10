@@ -1,5 +1,6 @@
 package com.inin.analytics.elasticsearch.transport;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
@@ -62,9 +63,7 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 		ensurePathExists(destination);
 
 		try{
-			if(!hdfsFileSystem.exists(new Path(destination +  BaseESReducer.DIR_SEPARATOR + filename))) {
-				hdfsFileSystem.copyFromLocalFile(source, new Path(destination + BaseESReducer.DIR_SEPARATOR + filename));	
-			}
+			hdfsFileSystem.copyFromLocalFile(true, true, source, new Path(destination + BaseESReducer.DIR_SEPARATOR + filename));	
 		}
 		catch(LeaseExpiredException | RemoteException e) {
 			// This is an expected race condition where 2 reducers are trying to write the manifest files at the same time. That's okay, it only has to succeed once. 
@@ -74,9 +73,13 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 
 	@Override
 	protected void transferDir(String destination, String localShardPath, String shard) throws IOException {
+		destination = destination + shard + BaseESReducer.DIR_SEPARATOR;
 		ensurePathExists(destination);
 		try{
-			hdfsFileSystem.copyFromLocalFile(false, true, new Path(localShardPath), new Path(destination));	
+			File[] files = new File(localShardPath).listFiles();
+			for (File file : files) {
+				transferFile(destination, file.getName(), localShardPath);
+			}
 		} catch(FileNotFoundException e) {
 			throw new FileNotFoundException("Exception copying " + localShardPath + " to " + destination);
 		} 
