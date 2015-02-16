@@ -60,7 +60,7 @@ public class ESEmbededContainer {
 					.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
 					.put("node.name", nodeName)
 					.put("path.data", workingDir)
-					.put("index.refresh_interval", -1) // Disable index refreshes, improves performance
+					.put("index.refresh_interval", 30) 
 					.build();
 
 			// Create the node
