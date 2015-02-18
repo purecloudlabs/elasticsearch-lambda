@@ -47,6 +47,13 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	
 	// The container handles spinning up our embedded elasticsearch instance
 	private ESEmbededContainer esEmbededContainer;
+	
+	// Hold onto some frequently generated objects to cut down on GC overhead 
+	private String indexType;
+	private String docId;
+	private String pre;
+	private String json;
+	private String snapshotName;
    
 	public void configure(JobConf job) {
 		partition = job.get("mapred.task.partition");
@@ -114,10 +121,10 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			}
 			
 			pieces = StringUtils.split(line.toString(), TUPLE_SEPARATOR);
-			String indexType = pieces[0];
-			String docId = pieces[1];
-			String pre = indexType + TUPLE_SEPARATOR + docId + TUPLE_SEPARATOR;
-			String json = line.toString().substring(pre.length());
+			indexType = pieces[0];
+			docId = pieces[1];
+			pre = indexType + TUPLE_SEPARATOR + docId + TUPLE_SEPARATOR;
+			json = line.toString().substring(pre.length());
 
 			bulkRequestBuilder.add(esEmbededContainer.getNode().client().prepareIndex(indexName, indexType).setId(docId).setRouting(routing).setSource(json));
 			
@@ -140,9 +147,11 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	}
 	
 	public void snapshot(String index) throws IOException {
-		String snapshotName = SNAPSHOT_NAME_PREFIX + index;
+		snapshotName = SNAPSHOT_NAME_PREFIX + index;
 		esEmbededContainer.snapshot(index, snapshotName, snapshotRepoName);
 		esEmbededContainer.getNode().close();
+		while(!esEmbededContainer.getNode().isClosed());
+		System.gc();
 		
 		// Cleanup the working dir
 		FileUtils.deleteDirectory(new File(esWorkingDir));
