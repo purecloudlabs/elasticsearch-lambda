@@ -8,6 +8,7 @@ import java.util.Map;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 
 import com.google.common.base.Preconditions;
@@ -20,6 +21,11 @@ import com.google.common.base.Preconditions;
  */
 public class ESEmbededContainer {
 	private Node node;
+	private long DEFAULT_TIMEOUT_MS = 60 * 5 * 1000; 
+	
+	public void snapshot(String index, String snapshotName, String snapshotRepoName) {
+		snapshot(index, snapshotName, snapshotRepoName, DEFAULT_TIMEOUT_MS);
+	}
 	
 	/**
 	 * Flush, optimize, and snapshot an index. Block until complete. 
@@ -28,10 +34,17 @@ public class ESEmbededContainer {
 	 * @param snapshotName
 	 * @param snapshotRepoName
 	 */
-	public void snapshot(String index, String snapshotName, String snapshotRepoName) {
-		// Might as well flush & optimize before the snapshot
-		node.client().admin().indices().prepareFlush(index);
-		node.client().admin().indices().prepareOptimize(index);	
+	public void snapshot(String index, String snapshotName, String snapshotRepoName, long timeoutMS) {
+		/* Flush & optimize before the snapshot.
+		 *  
+		 * TODO: Long operations could block longer that the container allows an operation to go
+		 * unresponsive b/f killing. We need to issue the request and poll the future waiting on the
+		 * operation to succeed, but update a counter or something to let the hadoop framework
+		 * know the process is still alive. 
+		 */  
+		TimeValue v = new TimeValue(timeoutMS);
+		node.client().admin().indices().prepareFlush(index).get(v);
+		node.client().admin().indices().prepareOptimize(index).setWaitForMerge(true).get(v);
 
 		// Snapshot
 		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setWaitForCompletion(true).setIndices(index).get();
