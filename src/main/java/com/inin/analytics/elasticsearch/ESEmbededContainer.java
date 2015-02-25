@@ -2,6 +2,8 @@ package com.inin.analytics.elasticsearch;
 
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
+import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,7 +75,10 @@ public class ESEmbededContainer {
 					.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
 					.put("node.name", nodeName)
 					.put("path.data", workingDir)
-					.put("index.refresh_interval", 30) 
+					.put("index.refresh_interval", -1) 
+					.put("index.translog.flush_threshold_ops", 10000) // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
+					.put("bootstrap.mlockall", true)
+					.put("indices.fielddata.cache.size", "0%")
 					.build();
 
 			// Create the node

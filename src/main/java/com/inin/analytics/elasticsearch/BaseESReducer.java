@@ -151,6 +151,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		esEmbededContainer.snapshot(index, snapshotName, snapshotRepoName);
 		esEmbededContainer.getNode().close();
 		while(!esEmbededContainer.getNode().isClosed());
+		esEmbededContainer = null;
 		System.gc();
 		
 		// Cleanup the working dir
