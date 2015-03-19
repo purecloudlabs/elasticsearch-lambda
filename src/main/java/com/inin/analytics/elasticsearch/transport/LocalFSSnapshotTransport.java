@@ -31,13 +31,16 @@ public class LocalFSSnapshotTransport extends BaseTransport {
 	}
 
 	@Override
-	protected void transferFile(String destination, String filename, String localDirectory) throws IOException {
+	protected void transferFile(boolean deleteSource, String destination, String filename, String localDirectory) throws IOException {
 		File source = new File(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
 		Preconditions.checkArgument(source.exists(), "Could not find source file: " + source.getAbsolutePath()); 
 
 		File destinationDir = new File(destination);
 		FileUtils.forceMkdir(destinationDir);
 		FileUtils.copyFileToDirectory(source, destinationDir);
+		if(deleteSource) {
+			source.delete();
+		}
 	}
 
 	@Override

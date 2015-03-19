@@ -1,8 +1,10 @@
 package com.inin.analytics.elasticsearch;
 
 import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import org.apache.commons.io.FileUtils;
@@ -22,7 +24,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	public static final char DIR_SEPARATOR = '/';
 	
 	// We prefix all snapshots with the word snapshot
-	private static final String SNAPSHOT_NAME_PREFIX = "snapshot";
+	public static final String SNAPSHOT_NAME = "snapshot";
 	
 	// The local filesystem location that ES will write the snapshot out to
 	private String snapshotWorkingLocation;
@@ -147,8 +149,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	}
 	
 	public void snapshot(String index) throws IOException {
-		snapshotName = SNAPSHOT_NAME_PREFIX + index;
-		esEmbededContainer.snapshot(index, snapshotName, snapshotRepoName);
+		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName);
 		esEmbededContainer.getNode().close();
 		while(!esEmbededContainer.getNode().isClosed());
 		esEmbededContainer = null;
@@ -158,7 +159,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		FileUtils.deleteDirectory(new File(esWorkingDir));
 		
 		// Move the shard snapshot to the destination
-		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(snapshotName, index);
+		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME, index);
 
 		// Cleanup the snapshot dir
 		FileUtils.deleteDirectory(new File(snapshotWorkingLocation));
