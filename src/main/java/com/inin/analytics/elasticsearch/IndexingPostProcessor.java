@@ -81,23 +81,19 @@ public class IndexingPostProcessor {
 				esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
 			}
 
-
 			// Snapshot it
 			List<String> indexesToSnapshot = new ArrayList<>();
 			indexesToSnapshot.addAll(indicies);
 			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
 			
-
 			for(String index : indicies) {
-				if(numShardsPerIndex != numShardsGenerated.get(index)) {
-					// If a shard is missing (which is legit, routing could leave you with an empty one), put an empty shard it it's place
-					try{
-						placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index);	
-					} catch (FileNotFoundException e) {
-						logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
-						continue;
-					}
+				try{
+					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index);	
+				} catch (FileNotFoundException e) {
+					logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
+					continue;
 				}
+
 				// Re-write the manifest to local disk
 				writer.println(index);	
 			}
@@ -134,6 +130,7 @@ public class IndexingPostProcessor {
 		
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode")
+		.withInMemoryBackedIndexes(true)
 		.withWorkingDir(conf.get(ConfigParams.ES_WORKING_DIR.toString()))
 		.withClusterName("bulkLoadPartition")
 		.withNumShardsPerIndex(conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5))

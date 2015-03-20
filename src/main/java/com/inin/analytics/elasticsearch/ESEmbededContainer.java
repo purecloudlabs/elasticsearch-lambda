@@ -66,6 +66,7 @@ public class ESEmbededContainer {
 		private String templateSource;
 		private String snapshotWorkingLocation;
 		private String snapshotRepoName;
+		private boolean memoryBackedIndex = false;
 
 		public ESEmbededContainer build() {
 			Preconditions.checkNotNull(nodeName);
@@ -73,19 +74,23 @@ public class ESEmbededContainer {
 			Preconditions.checkNotNull(workingDir);
 			Preconditions.checkNotNull(clusterName);
 
-			Settings nodeSettings = ImmutableSettings.builder()
-					.put("http.enabled", false) // Disable HTTP transport, we'll communicate inner-jvm
-					.put("processors", 1) // We could experiment ramping this up to match # cores - num reducers per node
-					.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
-					.put("node.name", nodeName)
-					.put("path.data", workingDir)
-					.put("index.refresh_interval", -1) 
-					.put("index.translog.flush_threshold_ops", 10000) // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
-					.put("bootstrap.mlockall", true)
-					.put("cluster.routing.allocation.disk.watermark.low", 99) // Nodes don't form a cluster, so routing allocations don't matter
-					.put("cluster.routing.allocation.disk.watermark.high", 99)
-					.put("indices.fielddata.cache.size", "0%")
-					.build();
+			org.elasticsearch.common.settings.ImmutableSettings.Builder builder = ImmutableSettings.builder()
+			.put("http.enabled", false) // Disable HTTP transport, we'll communicate inner-jvm
+			.put("processors", 1) // We could experiment ramping this up to match # cores - num reducers per node
+			.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
+			.put("node.name", nodeName)
+			.put("path.data", workingDir)
+			.put("index.refresh_interval", -1) 
+			.put("index.translog.flush_threshold_ops", 10000) // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
+			.put("bootstrap.mlockall", true)
+			.put("cluster.routing.allocation.disk.watermark.low", 99) // Nodes don't form a cluster, so routing allocations don't matter
+			.put("cluster.routing.allocation.disk.watermark.high", 99)
+			.put("indices.fielddata.cache.size", "0%");
+			
+			if(memoryBackedIndex) {
+				builder.put("index.store.type", "memory");
+			}
+			Settings nodeSettings = builder.build();
 
 			// Create the node
 			container.setNode(nodeBuilder()
@@ -150,6 +155,11 @@ public class ESEmbededContainer {
 
 		public Builder withSnapshotRepoName(String snapshotRepoName) {
 			this.snapshotRepoName = snapshotRepoName;
+			return this;
+		}
+		
+		public Builder withInMemoryBackedIndexes(boolean memoryBackedIndex) {
+			this.memoryBackedIndex = memoryBackedIndex;
 			return this;
 		}
 
