@@ -58,12 +58,12 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 	}
 
 	@Override
-	protected void transferFile(String destination, String filename, String localDirectory) throws IOException {
+	protected void transferFile(boolean deleteSource, String destination, String filename, String localDirectory) throws IOException {
 		Path source = new Path(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
 		ensurePathExists(destination);
 
 		try{
-			hdfsFileSystem.copyFromLocalFile(true, true, source, new Path(destination + BaseESReducer.DIR_SEPARATOR + filename));	
+			hdfsFileSystem.copyFromLocalFile(deleteSource, true, source, new Path(destination + BaseESReducer.DIR_SEPARATOR + filename));	
 		}
 		catch(LeaseExpiredException | RemoteException e) {
 			// This is an expected race condition where 2 reducers are trying to write the manifest files at the same time. That's okay, it only has to succeed once. 
@@ -78,7 +78,7 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 		try{
 			File[] files = new File(localShardPath).listFiles();
 			for (File file : files) {
-				transferFile(destination, file.getName(), localShardPath);
+				transferFile(true, destination, file.getName(), localShardPath);
 			}
 		} catch(FileNotFoundException e) {
 			throw new FileNotFoundException("Exception copying " + localShardPath + " to " + destination);

@@ -6,8 +6,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,6 +22,7 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Lists;
 import com.inin.analytics.elasticsearch.transport.BaseTransport;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
@@ -41,8 +45,6 @@ public class IndexingPostProcessor {
 		FileSystem fs = FileSystem.get(conf);
 		ESEmbededContainer esEmbededContainer = null;
 		try{
-			esEmbededContainer = getESEmbededContainer(conf, reducerClass);
-
 			Map<String, Integer> numShardsGenerated = new HashMap<String, Integer>();
 
 			// Each reducer spits out it's own manifest file, merge em all together into 1 file
@@ -64,44 +66,59 @@ public class IndexingPostProcessor {
 			if(!scratch.exists()) {
 				// Make the dir if it doesn't exist
 				scratch.mkdirs();	
+			} else {
+				FileUtils.deleteDirectory(scratch);
+				scratch.mkdirs();
 			}
+			
+			esEmbededContainer = getESEmbededContainer(conf, reducerClass);
 
 			String scratchFile = scratchDir + "manifest";
 			PrintWriter writer = new PrintWriter(scratchFile, "UTF-8");
+			
+			// Create all the indexes
 			for(String index : indicies) {
-				if(numShardsPerIndex != numShardsGenerated.get(index)) {
-					// If a shard is missing (which is legit, routing could leave you with an empty one), put an empty shard it it's place
-					try{
-						placeMissingIndexes(esEmbededContainer, conf, index);	
-					} catch (FileNotFoundException e) {
-						logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
-						continue;
-					}
+				esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
+			}
+
+			// Snapshot it
+			List<String> indexesToSnapshot = new ArrayList<>();
+			indexesToSnapshot.addAll(indicies);
+			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
+			
+			for(String index : indicies) {
+				try{
+					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index);	
+				} catch (FileNotFoundException e) {
+					logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
+					continue;
 				}
+
 				// Re-write the manifest to local disk
 				writer.println(index);	
-				
-				// Clean up index from embedded instance
-				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();
 			}
+			
+			// Clean up index from embedded instance
+			for(String index : indicies) {
+				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();	
+			}
+
 			writer.close();
 
 			// Move the manifest onto HDFS
 			fs.copyFromLocalFile(new Path(scratchFile), manifestFile);
 		} finally {
 			if(esEmbededContainer != null) {
-				esEmbededContainer.getNode().close();	
+				esEmbededContainer.getNode().close();
+				while(!esEmbededContainer.getNode().isClosed());
 			}
 			FileUtils.deleteDirectory(new File(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString())));
 		}
 	}
 
-	public void placeMissingIndexes(ESEmbededContainer esEmbededContainer, Configuration conf, String index) throws IOException {
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
-		String snapshotName = "snapshot" + index;
-		esEmbededContainer.snapshot(index, snapshotName, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
+	public void placeMissingIndexes(String snapshotName, ESEmbededContainer esEmbededContainer, Configuration conf, String index) throws IOException {
 		BaseTransport transport = SnapshotTransportStrategy.get(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString()), conf.get(ConfigParams.SNAPSHOT_FINAL_DESTINATION.toString()));
-		transport.placeMissingShards(index, conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5));			
+		transport.placeMissingShards(snapshotName, index, conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5));			
 	}
 
 	private ESEmbededContainer getESEmbededContainer(Configuration conf, Class<? extends BaseESReducer> reducerClass) throws IOException, InstantiationException, IllegalAccessException {
@@ -113,6 +130,7 @@ public class IndexingPostProcessor {
 		
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode")
+		.withInMemoryBackedIndexes(true)
 		.withWorkingDir(conf.get(ConfigParams.ES_WORKING_DIR.toString()))
 		.withClusterName("bulkLoadPartition")
 		.withNumShardsPerIndex(conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5))

@@ -24,7 +24,7 @@ public abstract class BaseTransport {
 	
 	protected abstract void init();
 	protected abstract void close();
-	protected abstract void transferFile(String destination, String filename, String localDirectory) throws IOException;
+	protected abstract void transferFile(boolean deleteSource, String destination, String filename, String localDirectory) throws IOException;
 	protected abstract void transferDir(String destination, String localShardPath, String shard) throws IOException;
 	protected abstract boolean checkExists(String destination, Integer shardNumber) throws IOException;
 
@@ -45,16 +45,16 @@ public abstract class BaseTransport {
 		String destination = removeStorageSystemFromPath(snapshotFinalDestination);
 
 		// Upload top level manifests
-		transferFile(destination, "metadata-" + snapshotName, snapshotWorkingLocation);
-		transferFile(destination, "snapshot-" + snapshotName, snapshotWorkingLocation);
-		transferFile(destination, "index", snapshotWorkingLocation);
+		transferFile(false, destination, "metadata-" + snapshotName, snapshotWorkingLocation);
+		transferFile(false, destination, "snapshot-" + snapshotName, snapshotWorkingLocation);
+		transferFile(false, destination, "index", snapshotWorkingLocation);
 
 		
 		// Upload per-index manifests
 		String indexManifestSource =  snapshotWorkingLocation + "indices" + BaseESReducer.DIR_SEPARATOR + index;
 		String indexManifestDestination = destination + BaseESReducer.DIR_SEPARATOR + "indices" + BaseESReducer.DIR_SEPARATOR + index;
 		
-		transferFile(indexManifestDestination, "snapshot-" + snapshotName, indexManifestSource);
+		transferFile(false, indexManifestDestination, "snapshot-" + snapshotName, indexManifestSource);
 		
 		// Cleanup shard data
 		cleanEmptyShards(index, largestShard);
@@ -67,10 +67,14 @@ public abstract class BaseTransport {
 		close();
 	}
 	
-	public void placeMissingShards(String index, int numShards) throws IOException {
+	public void placeMissingShards(String snapshotName, String index, int numShards) throws IOException {
 		init();
-
 		String destination = removeStorageSystemFromPath(snapshotFinalDestination);
+		
+		// Upload top level manifests
+		transferFile(false, destination, "metadata-" + snapshotName, snapshotWorkingLocation);
+		transferFile(false, destination, "snapshot-" + snapshotName, snapshotWorkingLocation);
+		transferFile(false, destination, "index", snapshotWorkingLocation);
 		
 		for(int shard = 0; shard < numShards; shard++) {
 			String indexDestination = destination + BaseESReducer.DIR_SEPARATOR + "indices" + BaseESReducer.DIR_SEPARATOR + index + BaseESReducer.DIR_SEPARATOR  ;

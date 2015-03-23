@@ -69,11 +69,14 @@ public class S3SnapshotTransport extends BaseTransport {
 		}
 	}
 	
-	protected void transferFile(String bucket, String filename, String localDirectory) {
+	protected void transferFile(boolean deleteSource, String bucket, String filename, String localDirectory) {
 		File source = new File(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
 		Preconditions.checkArgument(source.exists(), "Could not find source file: " + source.getAbsolutePath()); 
 		Upload upload = tx.upload(bucket,  filename, source);
 		while(!upload.isDone());
+		if(deleteSource) {
+			source.delete();
+		}
 	}
 
 	@Override
