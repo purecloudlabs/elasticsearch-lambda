@@ -85,6 +85,7 @@ public class ESEmbededContainer {
 			.put("bootstrap.mlockall", true)
 			.put("cluster.routing.allocation.disk.watermark.low", 99) // Nodes don't form a cluster, so routing allocations don't matter
 			.put("cluster.routing.allocation.disk.watermark.high", 99)
+			.put("index.load_fixed_bitset_filters_eagerly", false)
 			.put("indices.fielddata.cache.size", "0%");
 			
 			if(memoryBackedIndex) {
