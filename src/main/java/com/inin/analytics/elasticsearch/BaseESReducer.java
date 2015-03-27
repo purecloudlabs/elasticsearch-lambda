@@ -22,6 +22,9 @@ import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable, Text> {
 	public static final char TUPLE_SEPARATOR = '|';
 	public static final char DIR_SEPARATOR = '/';
+	public static enum JOB_COUNTER {
+		TIME_SPENT_INDEXING_MS, TIME_SPENT_FLUSHING_MS, TIME_SPENT_MERGING_MS, TIME_SPENT_SNAPSHOTTING_MS, TIME_SPENT_TRANSPORTING_SNAPSHOT_MS
+	}
 	
 	// We prefix all snapshots with the word snapshot
 	public static final String SNAPSHOT_NAME = "snapshot";
@@ -137,10 +140,12 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			}
 		}
 		if(count > 0) {
-			bulkRequestBuilder.execute().actionGet();		
+			long start = System.currentTimeMillis();
+			bulkRequestBuilder.execute().actionGet();
+			reporter.incrCounter(JOB_COUNTER.TIME_SPENT_INDEXING_MS, System.currentTimeMillis() - start);
 		}
 		
-		snapshot(indexName);
+		snapshot(indexName, reporter);
 		output.collect(NullWritable.get(), new Text(indexName));
 	}
 
@@ -148,8 +153,8 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		
 	}
 	
-	public void snapshot(String index) throws IOException {
-		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName);
+	public void snapshot(String index, Reporter reporter) throws IOException {
+		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
 		esEmbededContainer.getNode().close();
 		while(!esEmbededContainer.getNode().isClosed());
 		esEmbededContainer = null;
@@ -159,8 +164,10 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		FileUtils.deleteDirectory(new File(esWorkingDir));
 		
 		// Move the shard snapshot to the destination
+		long start = System.currentTimeMillis();
 		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME, index);
-
+		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
+		
 		// Cleanup the snapshot dir
 		FileUtils.deleteDirectory(new File(snapshotWorkingLocation));
 	}
