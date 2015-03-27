@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.mapred.Reporter;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
@@ -16,6 +17,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 
 import com.google.common.base.Preconditions;
+import com.inin.analytics.elasticsearch.BaseESReducer.JOB_COUNTER;
 
 /**
  * Builds an embedded elasticsearch instance and configures it for you
@@ -27,8 +29,8 @@ public class ESEmbededContainer {
 	private Node node;
 	private long DEFAULT_TIMEOUT_MS = 60 * 5 * 1000; 
 	
-	public void snapshot(List<String> index, String snapshotName, String snapshotRepoName) {
-		snapshot(index, snapshotName, snapshotRepoName, DEFAULT_TIMEOUT_MS);
+	public void snapshot(List<String> index, String snapshotName, String snapshotRepoName, Reporter reporter) {
+		snapshot(index, snapshotName, snapshotRepoName, DEFAULT_TIMEOUT_MS, reporter);
 	}
 	
 	/**
@@ -38,7 +40,7 @@ public class ESEmbededContainer {
 	 * @param snapshotName
 	 * @param snapshotRepoName
 	 */
-	public void snapshot(List<String> indicies, String snapshotName, String snapshotRepoName, long timeoutMS) {
+	public void snapshot(List<String> indicies, String snapshotName, String snapshotRepoName, long timeoutMS, Reporter reporter) {
 		/* Flush & optimize before the snapshot.
 		 *  
 		 * TODO: Long operations could block longer that the container allows an operation to go
@@ -48,12 +50,27 @@ public class ESEmbededContainer {
 		 */  
 		TimeValue v = new TimeValue(timeoutMS);
 		for(String index : indicies) {
+			long start = System.currentTimeMillis();
 			node.client().admin().indices().prepareFlush(index).get(v);
+			if(reporter != null) {
+				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_FLUSHING_MS, System.currentTimeMillis() - start);
+			}
+
+			start = System.currentTimeMillis();
 			node.client().admin().indices().prepareOptimize(index).setWaitForMerge(true).get(v);
+			if(reporter != null) {
+				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_MERGING_MS, System.currentTimeMillis() - start);
+			}
+
 		}
 
 		// Snapshot
+		long start = System.currentTimeMillis();
 		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setWaitForCompletion(true).setIndices((String[]) indicies.toArray(new String[0])).get();
+		if(reporter != null) {
+			reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_SNAPSHOTTING_MS, System.currentTimeMillis() - start);
+		}
+
 	}
 
 	public static class Builder {
@@ -86,6 +103,7 @@ public class ESEmbededContainer {
 			.put("cluster.routing.allocation.disk.watermark.low", 99) // Nodes don't form a cluster, so routing allocations don't matter
 			.put("cluster.routing.allocation.disk.watermark.high", 99)
 			.put("index.load_fixed_bitset_filters_eagerly", false)
+			.put("indices.store.throttle.type", "none") // Allow indexing to max out disk IO
 			.put("indices.fielddata.cache.size", "0%");
 			
 			if(memoryBackedIndex) {
@@ -114,6 +132,7 @@ public class ESEmbededContainer {
 				Map<String, Object> settings = new HashMap<>();
 				settings.put("location", snapshotWorkingLocation);
 				settings.put("compress", true);
+				settings.put("max_snapshot_bytes_per_sec", "400mb"); // The default 20mb/sec is very slow for a local disk to disk snapshot
 				container.getNode().client().admin().cluster().preparePutRepository(snapshotRepoName).setType("fs").setSettings(settings).get();
 			}
 

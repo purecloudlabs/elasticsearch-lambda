@@ -84,7 +84,7 @@ public class IndexingPostProcessor {
 			// Snapshot it
 			List<String> indexesToSnapshot = new ArrayList<>();
 			indexesToSnapshot.addAll(indicies);
-			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
+			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()), null);
 			
 			for(String index : indicies) {
 				try{
