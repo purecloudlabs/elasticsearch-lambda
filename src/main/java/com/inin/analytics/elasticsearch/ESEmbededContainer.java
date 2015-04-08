@@ -104,6 +104,8 @@ public class ESEmbededContainer {
 			.put("cluster.routing.allocation.disk.watermark.high", 99)
 			.put("index.load_fixed_bitset_filters_eagerly", false)
 			.put("indices.store.throttle.type", "none") // Allow indexing to max out disk IO
+			.put("indices.memory.index_buffer_size", "5%") // The default 10% is a bit large b/c it's calculated against JVM heap size & not Yarn container allocation. Choosing a good value here could be made smarter.
+			.put("index.merge.policy.max_merged_segment","1g") // The default 5gb segment max size is too large for the typical hadoop node
 			.put("indices.fielddata.cache.size", "0%");
 			
 			if(memoryBackedIndex) {
