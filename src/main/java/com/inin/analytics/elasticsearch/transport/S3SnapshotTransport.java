@@ -2,17 +2,24 @@ package com.inin.analytics.elasticsearch.transport;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.MultipleFileUpload;
+import com.amazonaws.services.s3.transfer.ObjectMetadataProvider;
 import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.base.Preconditions;
 import com.inin.analytics.elasticsearch.BaseESReducer;
@@ -35,8 +42,29 @@ import com.inin.analytics.elasticsearch.BaseESReducer;
  */
 public class S3SnapshotTransport extends BaseTransport {
 	private static transient Logger logger = LoggerFactory.getLogger(S3SnapshotTransport.class);
+	private static final int S3_TRANSFER_THREAD_COUNT = 128;
 	private TransferManager tx;
-	
+	private ObjectMetadataProvider objectMetadataProvider;
+
+	/**
+	 * The default S3 thread pool in the aws sdk is 10 threads. ES Snapshots can be 100s of files, so parallelizing that
+	 * is advised. 
+	 * 
+	 * @return
+	 */
+	public static ThreadPoolExecutor createDefaultExecutorService() {
+		ThreadFactory threadFactory = new ThreadFactory() {
+			private int threadCount = 1;
+
+			public Thread newThread(Runnable r) {
+				Thread thread = new Thread(r);
+				thread.setName("s3-transfer-manager-worker-" + threadCount++);
+				return thread;
+			}
+		};
+		return (ThreadPoolExecutor)Executors.newFixedThreadPool(S3_TRANSFER_THREAD_COUNT, threadFactory);
+	}
+
 	public S3SnapshotTransport(String snapshotWorkingLocation, String snapshotFinalDestination) {
 		super(snapshotWorkingLocation, snapshotFinalDestination);
 	}
@@ -44,7 +72,14 @@ public class S3SnapshotTransport extends BaseTransport {
 	@Override
 	protected void init() {
 		DefaultAWSCredentialsProviderChain credentialProviderChain = new DefaultAWSCredentialsProviderChain();
-		tx = new TransferManager(credentialProviderChain.getCredentials());
+		tx = new TransferManager(new AmazonS3Client(credentialProviderChain.getCredentials()), createDefaultExecutorService());
+		
+		objectMetadataProvider = new ObjectMetadataProvider() {
+			@Override
+			public void provideObjectMetadata(File file, ObjectMetadata metadata) {
+				metadata.setSSEAlgorithm("AES256");
+			}
+		};
 	}
 	
 	@Override
@@ -53,7 +88,8 @@ public class S3SnapshotTransport extends BaseTransport {
 	}
 
 	protected void transferDir(String shardDestinationBucket, String localShardPath, String shard) {
-		MultipleFileUpload mfu = tx.uploadDirectory(shardDestinationBucket + shard, null, new File(localShardPath), true);
+		MultipleFileUpload mfu = tx.uploadDirectory(shardDestinationBucket + shard, null, new File(localShardPath), true, objectMetadataProvider);
+		
 		/**
 		 * TODO: Hadoop has a configurable timeout for how long a reducer can be non-responsive (usually 600s). If 
 		 * this takes >600s hadoop will kill the task. We need to ping the reporter to let it know it's alive
