@@ -1,6 +1,8 @@
 package com.inin.analytics.elasticsearch.transport;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -15,9 +17,11 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.MultipleFileUpload;
 import com.amazonaws.services.s3.transfer.ObjectMetadataProvider;
+import com.amazonaws.services.s3.transfer.Transfer.TransferState;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
@@ -107,11 +111,22 @@ public class S3SnapshotTransport extends BaseTransport {
 	
 	protected void transferFile(boolean deleteSource, String bucket, String filename, String localDirectory) {
 		File source = new File(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
-		Preconditions.checkArgument(source.exists(), "Could not find source file: " + source.getAbsolutePath()); 
-		Upload upload = tx.upload(bucket,  filename, source);
-		while(!upload.isDone());
-		if(deleteSource) {
-			source.delete();
+		Preconditions.checkArgument(source.exists(), "Could not find source file: " + source.getAbsolutePath());
+		FileInputStream fis;
+		try {
+			fis = new FileInputStream(source);
+			ObjectMetadata objectMetadata = new ObjectMetadata();
+			objectMetadata.setSSEAlgorithm("AES256");
+			Upload upload = tx.upload(bucket, filename, fis, objectMetadata);
+			
+			while(!upload.isDone());
+			Preconditions.checkState(upload.getState().equals(TransferState.Completed), "File " + filename + " failed to upload with state: " + upload.getState());
+			if(deleteSource) {
+				source.delete();
+			}
+		} catch (FileNotFoundException e) {
+			// Exception should never be thrown because the precondition above has already validated existence of file
+			logger.error("Filename could not be found " + filename, e);
 		}
 	}
 
