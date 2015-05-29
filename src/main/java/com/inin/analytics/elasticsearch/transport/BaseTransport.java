@@ -67,14 +67,16 @@ public abstract class BaseTransport {
 		close();
 	}
 	
-	public void placeMissingShards(String snapshotName, String index, int numShards) throws IOException {
+	public void placeMissingShards(String snapshotName, String index, int numShards, boolean includeRootManifest) throws IOException {
 		init();
 		String destination = removeStorageSystemFromPath(snapshotFinalDestination);
 		
-		// Upload top level manifests
-		transferFile(false, destination, "metadata-" + snapshotName, snapshotWorkingLocation);
-		transferFile(false, destination, "snapshot-" + snapshotName, snapshotWorkingLocation);
-		transferFile(false, destination, "index", snapshotWorkingLocation);
+		if(includeRootManifest) {
+			// Upload top level manifests
+			transferFile(false, destination, "metadata-" + snapshotName, snapshotWorkingLocation);
+			transferFile(false, destination, "snapshot-" + snapshotName, snapshotWorkingLocation);
+			transferFile(false, destination, "index", snapshotWorkingLocation);
+		}
 		
 		for(int shard = 0; shard < numShards; shard++) {
 			String indexDestination = destination + BaseESReducer.DIR_SEPARATOR + "indices" + BaseESReducer.DIR_SEPARATOR + index + BaseESReducer.DIR_SEPARATOR  ;
