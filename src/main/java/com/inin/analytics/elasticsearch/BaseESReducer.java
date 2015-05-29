@@ -15,15 +15,24 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputCollector;
 import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.ActionFuture;
+import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
+import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
+import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
+import org.elasticsearch.action.index.IndexResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
 public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable, Text> {
 	public static final char TUPLE_SEPARATOR = '|';
 	public static final char DIR_SEPARATOR = '/';
+	
 	public static enum JOB_COUNTER {
-		TIME_SPENT_INDEXING_MS, TIME_SPENT_FLUSHING_MS, TIME_SPENT_MERGING_MS, TIME_SPENT_SNAPSHOTTING_MS, TIME_SPENT_TRANSPORTING_SNAPSHOT_MS
+		TIME_SPENT_INDEXING_MS, TIME_SPENT_FLUSHING_MS, TIME_SPENT_MERGING_MS, TIME_SPENT_SNAPSHOTTING_MS, TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, INDEXING_DOC_FAIL, INDEX_DOC_CREATED, INDEX_DOC_NOT_CREATED
 	}
 	
 	// We prefix all snapshots with the word snapshot
@@ -41,9 +50,6 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	// Local filesystem location where index data is built
 	private String esWorkingDir;
 	
-	// Despite cutting out HTTP we'll still batch the writes to ES 
-	private Integer esBatchCommitSize;
-	
 	// The partition of data this reducer is serving. Useful for making directories unique if running multiple reducers on a task tracker 
 	private String partition;
 	
@@ -52,14 +58,14 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	
 	// The container handles spinning up our embedded elasticsearch instance
 	private ESEmbededContainer esEmbededContainer;
-	
+		
 	// Hold onto some frequently generated objects to cut down on GC overhead 
 	private String indexType;
 	private String docId;
 	private String pre;
 	private String json;
-	private String snapshotName;
    
+	@Override
 	public void configure(JobConf job) {
 		partition = job.get("mapred.task.partition");
         String attemptId = job.get("mapred.task.id");
@@ -70,7 +76,6 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		snapshotRepoName = job.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString());
 		esWorkingDir = job.get(ConfigParams.ES_WORKING_DIR.toString()) + partition + attemptId + DIR_SEPARATOR;
 		numShardsPerIndex = new Integer(job.get(ConfigParams.NUM_SHARDS_PER_INDEX.toString()));
-		esBatchCommitSize = new Integer(job.get(ConfigParams.ES_BATCH_COMMIT_SIZE.toString()));
 	}
 	
 
@@ -90,7 +95,9 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			builder.withTemplate(templateName, templateJson);	
 		}
 		
-		esEmbededContainer = builder.build();
+		if(esEmbededContainer == null) {
+			esEmbededContainer = builder.build();	
+		} 
 		
 		// Create index
 		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder().put("index.number_of_replicas", 0)).get();
@@ -110,13 +117,14 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	 */
 	public abstract String getTemplateName();
 
-	public void reduce(Text docMetaData, Iterator<Text> documentPayloads, OutputCollector<NullWritable, Text> output, Reporter reporter) throws IOException {
+	@Override
+	public void reduce(Text docMetaData, Iterator<Text> documentPayloads, OutputCollector<NullWritable, Text> output, final Reporter reporter) throws IOException {
 		String[] pieces = StringUtils.split(docMetaData.toString(), TUPLE_SEPARATOR);
 		String indexName = pieces[0];
 		String routing = pieces[1]; 
 		init(indexName);
 
-		BulkRequestBuilder bulkRequestBuilder = esEmbededContainer.getNode().client().prepareBulk();
+		long start = System.currentTimeMillis();
 		int count = 0;
 		while(documentPayloads.hasNext()) {
 			count++;
@@ -131,44 +139,41 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			pre = indexType + TUPLE_SEPARATOR + docId + TUPLE_SEPARATOR;
 			json = line.toString().substring(pre.length());
 
-			bulkRequestBuilder.add(esEmbededContainer.getNode().client().prepareIndex(indexName, indexType).setId(docId).setRouting(routing).setSource(json));
-			
-			if(count % esBatchCommitSize == 0) {
-				bulkRequestBuilder.execute().actionGet();
-				bulkRequestBuilder = esEmbededContainer.getNode().client().prepareBulk();
-				count = 0;
+			IndexResponse response = esEmbededContainer.getNode().client().prepareIndex(indexName, indexType).setId(docId).setRouting(routing).setSource(json).execute().actionGet();
+			if(response.isCreated()) {
+				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_CREATED, 1l);
+			} else {
+				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_NOT_CREATED, 1l);
 			}
 		}
-		if(count > 0) {
-			long start = System.currentTimeMillis();
-			bulkRequestBuilder.execute().actionGet();
-			reporter.incrCounter(JOB_COUNTER.TIME_SPENT_INDEXING_MS, System.currentTimeMillis() - start);
-		}
+
+		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_INDEXING_MS, System.currentTimeMillis() - start);
 		
 		snapshot(indexName, reporter);
 		output.collect(NullWritable.get(), new Text(indexName));
 	}
 
+	@Override
 	public void close() throws IOException {
-		
+		if(esEmbededContainer != null) {
+			esEmbededContainer.getNode().close();
+			while(!esEmbededContainer.getNode().isClosed());
+			FileUtils.deleteDirectory(new File(snapshotWorkingLocation));
+		}
 	}
-	
+
 	public void snapshot(String index, Reporter reporter) throws IOException {
 		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
-		esEmbededContainer.getNode().close();
-		while(!esEmbededContainer.getNode().isClosed());
-		esEmbededContainer = null;
-		System.gc();
 		
-		// Cleanup the working dir
-		FileUtils.deleteDirectory(new File(esWorkingDir));
+		// Delete the index to free up that space
+		ActionFuture<DeleteIndexResponse> response = esEmbededContainer.getNode().client().admin().indices().delete(new DeleteIndexRequest(index));
+		while(!response.isDone());
 		
 		// Move the shard snapshot to the destination
 		long start = System.currentTimeMillis();
 		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME, index);
 		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
 		
-		// Cleanup the snapshot dir
-		FileUtils.deleteDirectory(new File(snapshotWorkingLocation));
+		esEmbededContainer.deleteSnapshot(SNAPSHOT_NAME, snapshotRepoName);
 	}
 }

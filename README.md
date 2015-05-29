@@ -71,7 +71,7 @@ Prepare some data for the indexing job
 
 Build Elasticsearch indexes, snapshot them, and transport them to a snapshot repository on hdfs (s3 paths also allowed)
 
- * esIndexRebuildExample /tmp/datajson/ /tmp/bulkload110/ hdfs:///tmp/snapshotrepo110/ my_backup /tmp/esrawdata1010/ 1 5 100 /tmp/manifest110/
+ * esIndexRebuildExample /tmp/datajson/ /tmp/bulkload110/ hdfs:///tmp/snapshotrepo110/ my_backup /tmp/esrawdata1010/ 1 5 /tmp/manifest110/
 
 ### Can I use HDFS or NFS for Elasticsearch data?
 

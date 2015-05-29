@@ -44,6 +44,7 @@ public class IndexingPostProcessor {
 	public void execute(Path jobOutput, Path manifestFile, String scratchDir, int numShardsPerIndex, Configuration conf, Class<? extends BaseESReducer> reducerClass) throws IOException, InstantiationException, IllegalAccessException {
 		FileSystem fs = FileSystem.get(conf);
 		ESEmbededContainer esEmbededContainer = null;
+		boolean rootManifestUploaded = false;
 		try{
 			Map<String, Integer> numShardsGenerated = new HashMap<String, Integer>();
 
@@ -88,7 +89,9 @@ public class IndexingPostProcessor {
 			
 			for(String index : indicies) {
 				try{
-					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index);	
+					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index, !rootManifestUploaded);
+					// The root level manifests are the same on each one, so it need only be uploaded once
+					rootManifestUploaded = true;
 				} catch (FileNotFoundException e) {
 					logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
 					continue;
@@ -116,9 +119,9 @@ public class IndexingPostProcessor {
 		}
 	}
 
-	public void placeMissingIndexes(String snapshotName, ESEmbededContainer esEmbededContainer, Configuration conf, String index) throws IOException {
+	public void placeMissingIndexes(String snapshotName, ESEmbededContainer esEmbededContainer, Configuration conf, String index, boolean includeRootManifest) throws IOException {
 		BaseTransport transport = SnapshotTransportStrategy.get(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString()), conf.get(ConfigParams.SNAPSHOT_FINAL_DESTINATION.toString()));
-		transport.placeMissingShards(snapshotName, index, conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5));			
+		transport.placeMissingShards(snapshotName, index, conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5), includeRootManifest);			
 	}
 
 	private ESEmbededContainer getESEmbededContainer(Configuration conf, Class<? extends BaseESReducer> reducerClass) throws IOException, InstantiationException, IllegalAccessException {

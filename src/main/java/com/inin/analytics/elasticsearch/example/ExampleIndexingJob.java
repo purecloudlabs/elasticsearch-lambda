@@ -20,8 +20,8 @@ public class ExampleIndexingJob implements Tool {
 
 	private static Configuration conf;
 	public static int main(String[] args) throws Exception {
-		if(args.length != 9) {
-			System.err.println("Invalid # arguments. EG: loadES [pipe separated input] [snapshot working directory (fs/nfs)] [snapshot final destination (s3/nfs/hdfs)] [snapshot repo name] [elasticsearch working data location] [num reducers] [num shards per index] [ES batch commit size] [manifest location]");
+		if(args.length != 8) {
+			System.err.println("Invalid # arguments. EG: loadES [pipe separated input] [snapshot working directory (fs/nfs)] [snapshot final destination (s3/nfs/hdfs)] [snapshot repo name] [elasticsearch working data location] [num reducers] [num shards per index] [manifest location]");
 			return -1;
 		}
 
@@ -32,8 +32,7 @@ public class ExampleIndexingJob implements Tool {
 		String esWorkingDir = args[4];
 		Integer numReducers = new Integer(args[5]);
 		Integer numShardsPerIndex = new Integer(args[6]);
-		Integer esBatchCommitSize = new Integer(args[7]);
-		String manifestLocation = args[8];
+		String manifestLocation = args[7];
 
 		// Remove trailing slashes from the destination 
 		snapshotFinalDestination = StringUtils.stripEnd(snapshotFinalDestination, "/");
@@ -44,7 +43,6 @@ public class ExampleIndexingJob implements Tool {
 		conf.set(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString(), snapshotRepoName);
 		conf.set(ConfigParams.ES_WORKING_DIR.toString(), esWorkingDir);
 		conf.set(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), numShardsPerIndex.toString());
-		conf.set(ConfigParams.ES_BATCH_COMMIT_SIZE.toString(), esBatchCommitSize.toString());
 
 		JobConf job = new JobConf(conf, ExampleIndexingJob.class);
 		job.setJobName("Elastic Search Offline Index Generator");

@@ -82,6 +82,7 @@ public class S3SnapshotTransport extends BaseTransport {
 			@Override
 			public void provideObjectMetadata(File file, ObjectMetadata metadata) {
 				metadata.setSSEAlgorithm("AES256");
+				metadata.setContentLength(file.length());
 			}
 		};
 	}
@@ -112,11 +113,13 @@ public class S3SnapshotTransport extends BaseTransport {
 	protected void transferFile(boolean deleteSource, String bucket, String filename, String localDirectory) {
 		File source = new File(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
 		Preconditions.checkArgument(source.exists(), "Could not find source file: " + source.getAbsolutePath());
+		logger.info("Transfering + " + source + " to " + bucket + " with key " + filename);
 		FileInputStream fis;
 		try {
 			fis = new FileInputStream(source);
 			ObjectMetadata objectMetadata = new ObjectMetadata();
 			objectMetadata.setSSEAlgorithm("AES256");
+			objectMetadata.setContentLength(source.length());
 			Upload upload = tx.upload(bucket, filename, fis, objectMetadata);
 			
 			while(!upload.isDone());

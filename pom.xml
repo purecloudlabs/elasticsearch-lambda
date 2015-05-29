@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0.22</version>
+	<version>1.0.23</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
@@ -26,7 +26,7 @@
 		<joda.version>2.3</joda.version>
 		<jackson.version>1.9.2</jackson.version>
 		<logback.version>1.0.13</logback.version>
-		<aws-java-sdk.version>1.8.2</aws-java-sdk.version>
+		<aws-java-sdk.version>1.9.38</aws-java-sdk.version>
 		<slf4j.version>1.7.5</slf4j.version>
 		<org.apache.avro.version>1.7.5</org.apache.avro.version>
 	</properties>
