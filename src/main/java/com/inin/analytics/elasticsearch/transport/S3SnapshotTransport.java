@@ -12,18 +12,18 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.MultipleFileUpload;
 import com.amazonaws.services.s3.transfer.ObjectMetadataProvider;
 import com.amazonaws.services.s3.transfer.Transfer.TransferState;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.base.Preconditions;
 import com.inin.analytics.elasticsearch.BaseESReducer;
@@ -72,11 +72,18 @@ public class S3SnapshotTransport extends BaseTransport {
 	public S3SnapshotTransport(String snapshotWorkingLocation, String snapshotFinalDestination) {
 		super(snapshotWorkingLocation, snapshotFinalDestination);
 	}
-	
+
+	public static AmazonS3Client getS3Client() {
+		return (Regions.getCurrentRegion() != null) ?
+				Regions.getCurrentRegion().createClient(AmazonS3Client.class,
+						new DefaultAWSCredentialsProviderChain(),
+						new ClientConfiguration()) :
+							new AmazonS3Client();
+	}
+
 	@Override
 	protected void init() {
-		DefaultAWSCredentialsProviderChain credentialProviderChain = new DefaultAWSCredentialsProviderChain();
-		tx = new TransferManager(new AmazonS3Client(credentialProviderChain.getCredentials()), createDefaultExecutorService());
+		tx = new TransferManager(getS3Client(), createDefaultExecutorService());
 		
 		objectMetadataProvider = new ObjectMetadataProvider() {
 			@Override
