@@ -36,33 +36,6 @@ public class ESEmbededContainer {
 	}
 	
 	/**
-	 * The ideal # of segments for a shard is such that they never exceed
-	 * the max merged segment size parameter. EG if you have 700mb of data
-	 * and max merged size is 256mb, then you need 3 shards to contain that. 
-	 * 
-	 * @param index
-	 * @return Long
-	 */
-	private Long determineMaxNumSegments(String index) {
-		IndicesStatsResponse stats = node.client().admin().indices().prepareStats()
-				.setIndices(index)
-				.setStore(true)
-				.execute().actionGet();
-
-		Long numSegments = 1l;
-		
-
-		if(stats != null && stats.getIndex(index) != null) {
-			long indexWriterMemory = stats.getIndex(index).getPrimaries().getSegments().getIndexWriterMemoryInBytes();
-			long storedSpace = stats.getIndex(index).getPrimaries().getStore().getSizeInBytes();
-			ByteSizeValue b = new ByteSizeValue(indexWriterMemory + storedSpace);
-			numSegments += (Long) (b.getMb() / MAX_MERGED_SEGMENT_SIZE_MB);
-		}
-		
-		logger.info("Determining # Max Segments on index " + index + " with stats " + stats.toString() + " to use " + numSegments + " segments");
-		return numSegments;
-	}
-	/**
 	 * Flush, optimize, and snapshot an index. Block until complete. 
 	 * 
 	 * @param index
@@ -86,10 +59,7 @@ public class ESEmbededContainer {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_FLUSHING_MS, System.currentTimeMillis() - start);
 			}
 
-			//Long maxNumSegments = determineMaxNumSegments(index);
-			
 			start = System.currentTimeMillis();
-			//node.client().admin().indices().prepareOptimize(index).setMaxNumSegments(maxNumSegments.intValue()).setForce(true).get(v);
 			node.client().admin().indices().prepareOptimize(index).get(v);
 			if(reporter != null) {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_MERGING_MS, System.currentTimeMillis() - start);
@@ -143,6 +113,7 @@ public class ESEmbededContainer {
 			.put("indices.memory.index_buffer_size", "5%") // The default 10% is a bit large b/c it's calculated against JVM heap size & not Yarn container allocation. Choosing a good value here could be made smarter.
 			.put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
 			//.put("index.merge.policy.max_merge_at_once", 10) 
+			.put("index.merge.policy.segments_per_tier", 4)
 			.put("index.merge.scheduler.max_thread_count", 1)
 			.put("path.repo", snapshotWorkingLocation)
 			.put("index.compound_format", false) // Explicitly disable compound files
