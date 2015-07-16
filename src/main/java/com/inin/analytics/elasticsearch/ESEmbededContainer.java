@@ -53,12 +53,14 @@ public class ESEmbededContainer {
 		TimeValue v = new TimeValue(timeoutMS);
 		for(String index : indicies) {
 			long start = System.currentTimeMillis();
-			// Flush before we determine # of segments that's ideal
+
+			// Flush
 			node.client().admin().indices().prepareFlush(index).get(v);
 			if(reporter != null) {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_FLUSHING_MS, System.currentTimeMillis() - start);
 			}
 
+			// Merge
 			start = System.currentTimeMillis();
 			node.client().admin().indices().prepareOptimize(index).get(v);
 			if(reporter != null) {
