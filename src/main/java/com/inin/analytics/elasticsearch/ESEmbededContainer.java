@@ -7,11 +7,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.mapred.Reporter;
+import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
@@ -24,6 +28,8 @@ import com.google.common.base.Preconditions;
 public class ESEmbededContainer {
 	private Node node;
 	private long DEFAULT_TIMEOUT_MS = 60 * 5 * 1000; 
+	private static Integer MAX_MERGED_SEGMENT_SIZE_MB = 256;
+	private static transient Logger logger = LoggerFactory.getLogger(ESEmbededContainer.class);
 	
 	public void snapshot(List<String> index, String snapshotName, String snapshotRepoName, Reporter reporter) {
 		snapshot(index, snapshotName, snapshotRepoName, DEFAULT_TIMEOUT_MS, reporter);
@@ -47,17 +53,19 @@ public class ESEmbededContainer {
 		TimeValue v = new TimeValue(timeoutMS);
 		for(String index : indicies) {
 			long start = System.currentTimeMillis();
+
+			// Flush
 			node.client().admin().indices().prepareFlush(index).get(v);
 			if(reporter != null) {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_FLUSHING_MS, System.currentTimeMillis() - start);
 			}
 
+			// Merge
 			start = System.currentTimeMillis();
-			node.client().admin().indices().prepareOptimize(index).setWaitForMerge(true).get(v);
+			node.client().admin().indices().prepareOptimize(index).get(v);
 			if(reporter != null) {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_MERGING_MS, System.currentTimeMillis() - start);
 			}
-
 		}
 
 		// Snapshot
@@ -105,8 +113,13 @@ public class ESEmbededContainer {
 			.put("index.load_fixed_bitset_filters_eagerly", false)
 			.put("indices.store.throttle.type", "none") // Allow indexing to max out disk IO
 			.put("indices.memory.index_buffer_size", "5%") // The default 10% is a bit large b/c it's calculated against JVM heap size & not Yarn container allocation. Choosing a good value here could be made smarter.
-			.put("index.merge.policy.max_merged_segment","256mb") // The default 5gb segment max size is too large for the typical hadoop node
-			.put("index.merge.scheduler.max_thread_count", 1) 
+			.put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
+			//.put("index.merge.policy.max_merge_at_once", 10) 
+			.put("index.merge.policy.segments_per_tier", 4)
+			.put("index.merge.scheduler.max_thread_count", 1)
+			.put("path.repo", snapshotWorkingLocation)
+			.put("index.compound_format", false) // Explicitly disable compound files
+			//.put("index.codec", "best_compression") // Lucene 5/ES 2.0 feature to play with when that's out
 			.put("indices.fielddata.cache.size", "0%");
 			
 			if(memoryBackedIndex) {
