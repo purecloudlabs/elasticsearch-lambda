@@ -45,9 +45,17 @@ After indexes have been generated they can be loaded in using the snapshot resto
 <dependency>
 <artifactId>elasticsearch-lambda</artifactId>
 <groupId>com.inin.analytics</groupId>
-<version>1.0.1</version>
+<version>1.0.25</version>
 </dependency>
 ```
+
+## Shard routing
+
+In order to index 1 shard per reducer at a time, elasticsearch-lambda relies on manual shard routing. If you've got big indexes (probably why you're here), then you'll almost certainly want a custom routing strategy so that searches can hit a subset of shards.
+
+To create your own you would implement the ElasticsearchRoutingStrategy interface and make use of it during the setup method of the ExampleJobPrep job. The default works as such:
+
+ElasticsearchRoutingStrategyV1: Two parameters: numShards & numShardsPerOrg. A nieve apprach would be routing all data for 1 customer to 1 shard. To avoid hotspotting shards with large customers, this lets you spread the load across multiple shards. For example with 10 shards and 3 per customer, customer A might sit on shards 1,3,5 while customer B sits on shards 2,3,8. Setting the inputs to 10 & 10 would spread all customers evenly across all 10 shards. 
 
 ## EMR Example Steps
 
