@@ -14,6 +14,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
+import org.elasticsearch.plugins.PluginsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,6 +106,7 @@ public class ESEmbededContainer {
 			.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
 			.put("node.name", nodeName)
 			.put("path.data", workingDir)
+			.put("plugins." + PluginsService.LOAD_PLUGIN_FROM_CLASSPATH, true) // Allow plugins if they're bundled in with the uuberjar
 			.put("index.refresh_interval", -1) 
 			.put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
 			.put("bootstrap.mlockall", true)
