@@ -117,10 +117,11 @@ public abstract class BaseTransport {
 		Long biggestDirLength = null;
 		String biggestDir = null;
 		for(String directory : shardDirectories) {
-			long dirLength = new File(baseIndexLocation + directory).length();
-			if(biggestDirLength == null || biggestDirLength < dirLength) {
+			File curDir = new File(baseIndexLocation + directory);
+                        long curDirLength = FileUtils.sizeOfDirectory(curDir);
+			if(biggestDirLength == null || biggestDirLength < curDirLength) {
 				biggestDir = directory;
-				biggestDirLength = new File(baseIndexLocation + directory).length();
+				biggestDirLength = curDirLength;
 			}
 		}
 		
