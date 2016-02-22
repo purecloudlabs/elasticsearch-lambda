@@ -7,14 +7,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.mapred.Reporter;
-import org.elasticsearch.action.admin.indices.stats.IndicesStatsResponse;
+import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsRequest;
+import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.plugins.PluginsService;
+import org.elasticsearch.snapshots.SnapshotInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +29,7 @@ import com.google.common.base.Preconditions;
  */
 public class ESEmbededContainer {
 	private Node node;
-	private long DEFAULT_TIMEOUT_MS = 60 * 5 * 1000; 
+	private long DEFAULT_TIMEOUT_MS = 60 * 30 * 1000; 
 	private static Integer MAX_MERGED_SEGMENT_SIZE_MB = 256;
 	private static transient Logger logger = LoggerFactory.getLogger(ESEmbededContainer.class);
 	
@@ -71,11 +72,45 @@ public class ESEmbededContainer {
 
 		// Snapshot
 		long start = System.currentTimeMillis();
-		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setWaitForCompletion(true).setIndices((String[]) indicies.toArray(new String[0])).get();
+		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).execute();
+
+		// ES snapshot restore ignores timers and will block no more than 30s :( You have to block & poll to make sure it's done
+		blockForSnapshot(snapshotRepoName, indicies, timeoutMS);	
+		
 		if(reporter != null) {
 			reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_SNAPSHOTTING_MS, System.currentTimeMillis() - start);
 		}
 
+	}
+
+	/** 
+	 * Block for index snapshots to be complete
+	 *  
+	 * @param snapshotRepoName
+	 * @param index
+	 * @param timeoutMS
+	 * @param reporter
+	 */
+	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
+		long start = System.currentTimeMillis();
+		while(System.currentTimeMillis() - start < timeoutMS) {
+
+			GetSnapshotsResponse repos = node.client().admin().cluster().getSnapshots(new GetSnapshotsRequest(snapshotRepoName)).actionGet();
+				for(SnapshotInfo i : repos.getSnapshots()) {
+					if(i.state().completed() && i.successfulShards() == i.totalShards() && i.totalShards() >= indicies.size()) {
+						logger.info("Snapshot completed {} out of {} indicies. Snapshot state {}. ", i.successfulShards(), i.totalShards(), i.state().completed());
+						return;
+					} else {
+						logger.info("Snapshotted {} out of {} indicies, polling for completion. Snapshot state {}.", i.successfulShards(), i.totalShards(), i.state().completed());
+					}
+				}
+			try {
+				// Don't slam ES with snapshot status requests in a tight loop
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 	
 	public void deleteSnapshot(String snapshotName, String snapshotRepoName) {
