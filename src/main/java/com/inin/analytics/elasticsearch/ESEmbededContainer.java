@@ -75,7 +75,7 @@ public class ESEmbededContainer {
 		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).execute();
 
 		// ES snapshot restore ignores timers and will block no more than 30s :( You have to block & poll to make sure it's done
-		blockForSnapshot(snapshotRepoName, indicies, timeoutMS, reporter);	
+		blockForSnapshot(snapshotRepoName, indicies, timeoutMS);	
 		
 		if(reporter != null) {
 			reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_SNAPSHOTTING_MS, System.currentTimeMillis() - start);
@@ -91,7 +91,7 @@ public class ESEmbededContainer {
 	 * @param timeoutMS
 	 * @param reporter
 	 */
-	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS, Reporter reporter) {
+	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
 		long start = System.currentTimeMillis();
 		while(System.currentTimeMillis() - start < timeoutMS) {
 
@@ -105,9 +105,6 @@ public class ESEmbededContainer {
 					}
 				}
 			try {
-				if(reporter != null) {
-					reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIMES_BLOCKED_WAITING_FOR_SNAPSHOT, 1);
-				}
 				// Don't slam ES with snapshot status requests in a tight loop
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
