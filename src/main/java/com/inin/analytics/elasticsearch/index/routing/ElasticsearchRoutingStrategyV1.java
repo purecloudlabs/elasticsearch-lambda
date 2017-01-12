@@ -176,4 +176,11 @@ public class ElasticsearchRoutingStrategyV1 implements ElasticsearchRoutingStrat
 		return true;
 	}
 
+    @Override
+    public String toString() {
+        return "ElasticsearchRoutingStrategyV1 [numShardsPerOrg=" + numShardsPerOrg + ", numShards=" + numShards
+                + ", shardToRout=" + shardToRout + "]";
+    }
+
+	
 }

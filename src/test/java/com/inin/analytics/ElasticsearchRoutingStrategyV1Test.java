@@ -106,6 +106,24 @@ public class ElasticsearchRoutingStrategyV1Test {
 	}
 	
 	@Test
+	public void testSingleShardIndex() {
+	    ElasticSearchIndexMetadata indexMetadata = new ElasticSearchIndexMetadata();
+	    indexMetadata.setNumShards(1);
+	    indexMetadata.setNumShardsPerOrg(1);
+
+	    ElasticsearchRoutingStrategyV1 strategy = new ElasticsearchRoutingStrategyV1();
+	    strategy.configure(indexMetadata);
+	    Set<String> routingHashs = new HashSet<>();
+	    for(String orgId : orgIds) {
+	        for(String convId : convIds) {
+	            String routingHash = strategy.getRoutingHash(orgId, convId);
+	            routingHashs.add(routingHash);
+	        }
+	    }
+	    assertEquals(routingHashs.size(), 1);
+	}
+
+	@Test
 	public void testOrgDistribution() {
 		ElasticSearchIndexMetadata indexMetadata = new ElasticSearchIndexMetadata();
 		indexMetadata.setNumShards(5);

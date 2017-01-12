@@ -19,7 +19,10 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.common.Preconditions;
 
+import com.google.gson.Gson;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
 public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable, Text> {
@@ -48,11 +51,10 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	// The partition of data this reducer is serving. Useful for making directories unique if running multiple reducers on a task tracker 
 	private String partition;
 	
-	// How many shards are in an index
-	private Integer numShardsPerIndex;
-	
 	// The container handles spinning up our embedded elasticsearch instance
 	private ESEmbededContainer esEmbededContainer;
+	
+	private ShardConfig shardConfig;
 		
 	// Hold onto some frequently generated objects to cut down on GC overhead 
 	private String indexType;
@@ -70,11 +72,16 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		snapshotFinalDestination = job.get(ConfigParams.SNAPSHOT_FINAL_DESTINATION.toString());
 		snapshotRepoName = job.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString());
 		esWorkingDir = job.get(ConfigParams.ES_WORKING_DIR.toString()) + partition + attemptId + DIR_SEPARATOR;
-		numShardsPerIndex = new Integer(job.get(ConfigParams.NUM_SHARDS_PER_INDEX.toString()));
+		if(shardConfig == null) {
+		    shardConfig = getShardConfig(job);    
+		}
 	}
 	
+	public void setShardConfig(ShardConfig shardConfig) {
+        this.shardConfig = shardConfig;
+    }
 
-	private void init(String index) {
+    private void init(String index) {
 		String templateName = getTemplateName();
 		String templateJson = getTemplate();
 
@@ -82,7 +89,6 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		.withNodeName("embededESTempLoaderNode" + partition)
 		.withWorkingDir(esWorkingDir)
 		.withClusterName("bulkLoadPartition:" + partition)
-		.withNumShardsPerIndex(numShardsPerIndex)
 		.withSnapshotWorkingLocation(snapshotWorkingLocation)
 		.withSnapshotRepoName(snapshotRepoName);
 		
@@ -95,20 +101,36 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		} 
 		
 		// Create index
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder().put("index.number_of_replicas", 0)).get();
+		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder()
+		        .put("index.number_of_replicas", 0)
+		        .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, shardConfig.getShardsForIndex(index))
+		        ).get();
 	}
 	
 	/**
 	 * Provide the JSON contents of the index template. This is your hook for configuring ElasticSearch.
 	 * 
 	 * http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-templates.html
+	 * 
+     * @return String
 	 */
 	public abstract String getTemplate();
+	
+	
+	/**
+	 * Provide a ShardConfig which provides the number of shards per index and the number of 
+	 * shards to split organizations across. The number can be uniform across indices or a mapping
+	 * can be provided to enable per-index configuration values.
+	 *  
+	 * @param job
+	 * @return ShardConfig
+	 */
+	public abstract ShardConfig getShardConfig(JobConf job);
 	
 	/**
 	 * Provide an all lower case template name
 	 *  
-	 * @return
+	 * @return String
 	 */
 	public abstract String getTemplateName();
 
@@ -120,9 +142,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		init(indexName);
 
 		long start = System.currentTimeMillis();
-		int count = 0;
 		while(documentPayloads.hasNext()) {
-			count++;
 			Text line = documentPayloads.next();
 			if(line == null) {
 				continue;
