@@ -29,25 +29,20 @@ public class ShardConfig {
     private Long defaultShardsPerOrg = 2l;
     
     public ShardConfig(Map<String, Long> shardsPerIndex, Map<String, Long> shardsPerOrg) {
-        super();
         this.shardsPerIndex = shardsPerIndex;
         this.shardsPerOrg = shardsPerOrg;
     }
         
     public ShardConfig(Map<String, Long> shardsPerIndex, Map<String, Long> shardsPerOrg, Long defaultShardsPerIndex, Long defaultShardsPerOrg) {
-        super();
         this.shardsPerIndex = shardsPerIndex;
         this.shardsPerOrg = shardsPerOrg;
         this.defaultShardsPerIndex = defaultShardsPerIndex;
         this.defaultShardsPerOrg = defaultShardsPerOrg;
     }
     
-    public ShardConfig() {
-        super();
-    }
+    public ShardConfig() {}
     
     public ShardConfig(Long defaultShardsPerIndex, Long defaultShardsPerOrg) {
-        super();
         this.defaultShardsPerIndex = defaultShardsPerIndex;
         this.defaultShardsPerOrg = defaultShardsPerOrg;
     }

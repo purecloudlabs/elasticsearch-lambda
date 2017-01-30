@@ -20,9 +20,6 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
-import org.elasticsearch.common.Preconditions;
-
-import com.google.gson.Gson;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
 public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable, Text> {
