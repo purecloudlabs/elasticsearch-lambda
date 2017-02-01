@@ -38,11 +38,13 @@ public class ESEmbededContainer {
 	}
 	
 	/**
-	 * Flush, optimize, and snapshot an index. Block until complete. 
+	 * Flush, optimize, and snapshot an index. Block until complete.
 	 * 
-	 * @param index
+	 * @param indicies
 	 * @param snapshotName
 	 * @param snapshotRepoName
+	 * @param timeoutMS
+	 * @param reporter
 	 */
 	public void snapshot(List<String> indicies, String snapshotName, String snapshotRepoName, long timeoutMS, Reporter reporter) {
 		/* Flush & optimize before the snapshot.
@@ -83,13 +85,12 @@ public class ESEmbededContainer {
 
 	}
 
-	/** 
+	/**
 	 * Block for index snapshots to be complete
-	 *  
+	 * 
 	 * @param snapshotRepoName
-	 * @param index
+	 * @param indicies
 	 * @param timeoutMS
-	 * @param reporter
 	 */
 	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
 		long start = System.currentTimeMillis();
@@ -120,7 +121,6 @@ public class ESEmbededContainer {
 	public static class Builder {
 		private ESEmbededContainer container;
 		private String nodeName;
-		private Integer numShardsPerIndex;
 		private String workingDir;
 		private String clusterName;
 		private String templateName;
@@ -131,14 +131,12 @@ public class ESEmbededContainer {
 
 		public ESEmbededContainer build() {
 			Preconditions.checkNotNull(nodeName);
-			Preconditions.checkNotNull(numShardsPerIndex);
 			Preconditions.checkNotNull(workingDir);
 			Preconditions.checkNotNull(clusterName);
 
 			org.elasticsearch.common.settings.ImmutableSettings.Builder builder = ImmutableSettings.builder()
 			.put("http.enabled", false) // Disable HTTP transport, we'll communicate inner-jvm
 			.put("processors", 1) // We could experiment ramping this up to match # cores - num reducers per node
-			.put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
 			.put("node.name", nodeName)
 			.put("path.data", workingDir)
 			.put("plugins." + PluginsService.LOAD_PLUGIN_FROM_CLASSPATH, true) // Allow plugins if they're bundled in with the uuberjar
@@ -196,41 +194,72 @@ public class ESEmbededContainer {
 			container = new ESEmbededContainer();
 		}
 
+		/**
+		 * @param nodeName
+		 * @return Builder
+		 */
 		public Builder withNodeName(String nodeName) {
 			this.nodeName = nodeName;
 			return this;
 		}
 
-		public Builder withNumShardsPerIndex(Integer numShardsPerIndex) {
-			this.numShardsPerIndex = numShardsPerIndex;
-			return this;
-		}
-
+		/**
+		 * 
+		 * @param workingDir
+		 * @return Builder
+		 */
 		public Builder withWorkingDir(String workingDir) {
 			this.workingDir = workingDir;
 			return this;
 		}
+		
+		/**
+		 * 
+		 * @param clusterName
+		 * @return Builder
+		 */
 		public Builder withClusterName(String clusterName) {
 			this.clusterName = clusterName;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param templateName
+		 * @param templateSource
+		 * @return Builder
+		 */
 		public Builder withTemplate(String templateName, String templateSource) {
 			this.templateName = templateName;
 			this.templateSource = templateSource;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param snapshotWorkingLocation
+		 * @return Builder
+		 */
 		public Builder withSnapshotWorkingLocation(String snapshotWorkingLocation) {
 			this.snapshotWorkingLocation = snapshotWorkingLocation;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param snapshotRepoName
+		 * @return Builder
+		 */
 		public Builder withSnapshotRepoName(String snapshotRepoName) {
 			this.snapshotRepoName = snapshotRepoName;
 			return this;
 		}
 		
+		/**
+		 * 
+		 * @param memoryBackedIndex
+		 * @return Builder
+		 */
 		public Builder withInMemoryBackedIndexes(boolean memoryBackedIndex) {
 			this.memoryBackedIndex = memoryBackedIndex;
 			return this;
@@ -238,6 +267,10 @@ public class ESEmbededContainer {
 
 	}
 
+	/**
+	 * 
+	 * @return Node
+	 */
 	public Node getNode() {
 		return node;
 	}

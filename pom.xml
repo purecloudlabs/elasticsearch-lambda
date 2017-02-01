@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0.27</version>
+	<version>1.1</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
@@ -489,7 +489,15 @@
 		          </goals>
 		        </execution>
 		      </executions>
-		    </plugin>		    
+		    </plugin>	
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration>
+                        <!-- jdk8 started linting javadocs by default; ours are not fully compliant -->
+                        <additionalparam>-Xdoclint:none</additionalparam>
+                    </configuration>
+                </plugin>		    	    
 		    <plugin>
 		      <groupId>org.apache.maven.plugins</groupId>
 		      <artifactId>maven-javadoc-plugin</artifactId>

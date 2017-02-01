@@ -71,15 +71,15 @@ You can experiment via these run configs ran in series
  
 Lets build some dummy data
 
- * generateExampleData 1000 /tmp/data/part1
+ * generateExampleData 1000 file:///tmp/data/part2
  
 Prepare some data for the indexing job
 
- * examplePrep /tmp/data/ /tmp/datajson/ _rebuild_20141030012508 5 2  
+ * examplePrep /tmp/data/part2 /tmp/datajson/ _rebuild_20141030012508 5 2
 
 Build Elasticsearch indexes, snapshot them, and transport them to a snapshot repository on hdfs (s3 paths also allowed)
 
- * esIndexRebuildExample /tmp/datajson/ /tmp/bulkload110/ hdfs:///tmp/snapshotrepo110/ my_backup /tmp/esrawdata1010/ 1 5 /tmp/manifest110/
+ * esIndexRebuildExample /tmp/datajson/ /tmp/bulkload110/ hdfs:///tmp/snapshotrepo110/ my_backup /tmp/esrawdata1010/ 1 5 2 /tmp/manifest110/
 
 ### Can I use HDFS or NFS for Elasticsearch data?
 

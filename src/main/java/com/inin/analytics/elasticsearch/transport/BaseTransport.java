@@ -8,6 +8,7 @@ import org.apache.commons.io.FileUtils;
 
 import com.google.common.base.Preconditions;
 import com.inin.analytics.elasticsearch.BaseESReducer;
+import com.inin.analytics.elasticsearch.ShardConfig;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy.STORAGE_SYSTEMS;
 
 public abstract class BaseTransport {
@@ -67,7 +68,7 @@ public abstract class BaseTransport {
 		close();
 	}
 	
-	public void placeMissingShards(String snapshotName, String index, int numShards, boolean includeRootManifest) throws IOException {
+	public void placeMissingShards(String snapshotName, String index, ShardConfig shardConfig, boolean includeRootManifest) throws IOException {
 		init();
 		String destination = removeStorageSystemFromPath(snapshotFinalDestination);
 		
@@ -78,7 +79,7 @@ public abstract class BaseTransport {
 			transferFile(false, destination, "index", snapshotWorkingLocation);
 		}
 		
-		for(int shard = 0; shard < numShards; shard++) {
+		for(int shard = 0; shard < shardConfig.getShardsForIndex(index); shard++) {
 			String indexDestination = destination + BaseESReducer.DIR_SEPARATOR + "indices" + BaseESReducer.DIR_SEPARATOR + index + BaseESReducer.DIR_SEPARATOR  ;
 			if(!checkExists(indexDestination, shard)) {
 				// Upload shard data

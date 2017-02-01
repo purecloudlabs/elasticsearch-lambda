@@ -15,7 +15,7 @@ public interface ElasticsearchIndexRotationManager {
 	/**
 	 * Look up meta data for an index based on the original name it was created with
 	 * @param indexNameAtBirth
-	 * @return
+	 * @return ElasticSearchIndexMetadata
 	 */
 	ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth);
 	
@@ -38,7 +38,7 @@ public interface ElasticsearchIndexRotationManager {
 	/**
 	 * Get the current state of the index rebuild process. Again, this is optional and relies on updateRebuildPipelineState being used.
 	 * 
-	 * @return
+	 * @return RebuildPipelineState
 	 */
 	RebuildPipelineState getRebuildPipelineState();
 }
