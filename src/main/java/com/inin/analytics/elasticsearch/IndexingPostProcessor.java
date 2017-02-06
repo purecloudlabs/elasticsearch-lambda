@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,7 +21,6 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.inin.analytics.elasticsearch.transport.BaseTransport;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
@@ -49,7 +47,7 @@ public class IndexingPostProcessor {
 			Map<String, Integer> numShardsGenerated = new HashMap<String, Integer>();
 
 			// Each reducer spits out it's own manifest file, merge em all together into 1 file
-			FileUtil.copyMerge(fs, jobOutput, fs, manifestFile, false, conf, "");
+            FileUtil.copyMerge(fs, jobOutput, fs, manifestFile, false, conf, "");
 
 			// Read the merged file, de-duping entries as it reads
 			BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(manifestFile)));
@@ -79,14 +77,14 @@ public class IndexingPostProcessor {
 			
 			// Create all the indexes
 			for(String index : indicies) {
-				esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
+			    esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
 			}
-
+			
 			// Snapshot it
 			List<String> indexesToSnapshot = new ArrayList<>();
 			indexesToSnapshot.addAll(indicies);
 			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()), null);
-			
+
 			for(String index : indicies) {
 				try{
 					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index, !rootManifestUploaded);
@@ -100,10 +98,10 @@ public class IndexingPostProcessor {
 				// Re-write the manifest to local disk
 				writer.println(index);	
 			}
-			
+
 			// Clean up index from embedded instance
 			for(String index : indicies) {
-				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();	
+				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();
 			}
 
 			writer.close();
@@ -112,7 +110,7 @@ public class IndexingPostProcessor {
 			fs.copyFromLocalFile(new Path(scratchFile), manifestFile);
 		} finally {
 			if(esEmbededContainer != null) {
-				esEmbededContainer.getNode().close();
+                esEmbededContainer.getNode().close();
 				while(!esEmbededContainer.getNode().isClosed());
 			}
 			FileUtils.deleteDirectory(new File(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString())));
@@ -133,7 +131,6 @@ public class IndexingPostProcessor {
 		
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode")
-		.withInMemoryBackedIndexes(true)
 		.withWorkingDir(conf.get(ConfigParams.ES_WORKING_DIR.toString()))
 		.withClusterName("bulkLoadPartition")
 		.withNumShardsPerIndex(conf.getInt(ConfigParams.NUM_SHARDS_PER_INDEX.toString(), 5))

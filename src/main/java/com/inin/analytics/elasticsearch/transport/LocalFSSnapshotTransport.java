@@ -45,12 +45,19 @@ public class LocalFSSnapshotTransport extends BaseTransport {
 
 	@Override
 	protected void transferDir(String destination, String source, String shard) throws IOException {
-		File sourceDir = new File(source);
-		Preconditions.checkArgument(sourceDir.exists(), "Could not find dir: " + source); 
-		
-		File destinationDir = new File(destination + shard);
-		FileUtils.forceMkdir(destinationDir);
-		FileUtils.copyDirectory(sourceDir, destinationDir);
+        File sourceDir = new File(source);
+        Preconditions.checkArgument(sourceDir.exists(), "Could not find dir: " + source);
+
+        if (!destination.endsWith(String.valueOf(BaseESReducer.DIR_SEPARATOR))) {
+            destination = destination.concat(String.valueOf(BaseESReducer.DIR_SEPARATOR));
+        }
+        if (!shard.endsWith(String.valueOf(BaseESReducer.DIR_SEPARATOR))) {
+            shard = shard.concat(String.valueOf(BaseESReducer.DIR_SEPARATOR));
+        }
+
+        File destinationDir = new File(destination + shard);
+        FileUtils.forceMkdir(destinationDir);
+        FileUtils.copyDirectory(sourceDir, destinationDir);
 	}
 
 	@Override
@@ -59,4 +66,9 @@ public class LocalFSSnapshotTransport extends BaseTransport {
 		return destinationDir.exists();
 	}
 
+	@Override
+	protected boolean checkExists(String destination, String filename) throws IOException {
+        File destinationDir = new File(destination + filename);
+        return destinationDir.exists();
+    }
 }

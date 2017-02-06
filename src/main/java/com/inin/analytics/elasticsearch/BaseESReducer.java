@@ -1,6 +1,6 @@
 package com.inin.analytics.elasticsearch;
 
-import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
+import static org.elasticsearch.common.settings.Settings.builder;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +19,7 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.rest.RestStatus;
 
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
@@ -93,9 +94,9 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		if(esEmbededContainer == null) {
 			esEmbededContainer = builder.build();	
 		} 
-		
+
 		// Create index
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder().put("index.number_of_replicas", 0)).get();
+		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(builder().put("index.number_of_replicas", 0)).get();
 	}
 	
 	/**
@@ -135,7 +136,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			json = line.toString().substring(pre.length());
 
 			IndexResponse response = esEmbededContainer.getNode().client().prepareIndex(indexName, indexType).setId(docId).setRouting(routing).setSource(json).execute().actionGet();
-			if(response.isCreated()) {
+			if(response.status() == RestStatus.CREATED) {
 				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_CREATED, 1l);
 			} else {
 				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_NOT_CREATED, 1l);
@@ -143,7 +144,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		}
 
 		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_INDEXING_MS, System.currentTimeMillis() - start);
-		
+        
 		snapshot(indexName, reporter);
 		output.collect(NullWritable.get(), new Text(indexName));
 	}
@@ -158,16 +159,16 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	}
 
 	public void snapshot(String index, Reporter reporter) throws IOException {
-		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
-		
+	    esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
+
 		// Delete the index to free up that space
 		ActionFuture<DeleteIndexResponse> response = esEmbededContainer.getNode().client().admin().indices().delete(new DeleteIndexRequest(index));
 		while(!response.isDone());
 		
 		// Move the shard snapshot to the destination
 		long start = System.currentTimeMillis();
-		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME, index);
-		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
+		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME);
+        reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
 		
 		esEmbededContainer.deleteSnapshot(SNAPSHOT_NAME, snapshotRepoName);
 	}

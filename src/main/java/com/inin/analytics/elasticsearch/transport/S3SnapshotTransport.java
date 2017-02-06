@@ -158,4 +158,21 @@ public class S3SnapshotTransport extends BaseTransport {
 		return false;
 	}
 
+	@Override
+    protected boolean checkExists(String destination, String filename) throws IOException {
+        // Break that s3 path into bucket & key 
+        String[] pieces = StringUtils.split(destination, "/");
+        String bucket = pieces[0];
+        String key = destination.substring(bucket.length() + 1);
+        
+        // AWS SDK doesn't have an "exists" method so you have to list and check if the key is there. Thanks Obama
+        ObjectListing objects = tx.getAmazonS3Client().listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(key));
+
+        for (S3ObjectSummary objectSummary: objects.getObjectSummaries()) {
+            if (objectSummary.getKey().startsWith(key + filename)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0.27</version>
+	<version>5.1.1</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
@@ -14,7 +14,7 @@
 		<java-version>1.7</java-version>
 		<junit.version>4.11</junit.version>
 		<mockito.version>1.9.5</mockito.version>
-		<analytics.core.version>0.1.93-SNAPSHOT</analytics.core.version>
+		<analytics.core.version>0.2.128-SNAPSHOT</analytics.core.version>
 		<hadoop.core.version>2.2.0</hadoop.core.version>
 		<apache.commons-io.version>2.4</apache.commons-io.version>
 		<apache.commons-lang.version>2.5</apache.commons-lang.version>
@@ -29,6 +29,8 @@
 		<aws-java-sdk.version>1.9.38</aws-java-sdk.version>
 		<slf4j.version>1.7.5</slf4j.version>
 		<org.apache.avro.version>1.7.5</org.apache.avro.version>
+        <elasticsearch-phone.version>5.1.1</elasticsearch-phone.version>
+        <elasticsearch.version>5.1.1</elasticsearch.version>
 	</properties>
 	
 	<licenses>
@@ -80,6 +82,12 @@
 
 
 	<dependencies>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>${elasticsearch.version}</version> 
+        </dependency>
+	
 		<dependency>
 			<groupId>commons-codec</groupId>
 			<artifactId>commons-codec</artifactId>
@@ -123,7 +131,37 @@
 			<version>${joda.version}</version>
 		</dependency>
 
-
+        <!-- phone plugin dependencies -->
+        <dependency>
+            <groupId>com.inin.analytics</groupId>
+            <artifactId>elasticsearch-phone</artifactId>
+            <version>${elasticsearch-phone.version}</version>
+            <scope>system</scope>
+            <systemPath>${basedir}/src/main/resources/elasticsearch-phone/elasticsearch-phone-5.1.1-SNAPSHOT.jar</systemPath>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>elasticsearch</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.libphonenumber</groupId>
+            <artifactId>libphonenumber</artifactId>
+            <version>7.0.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.5</version>
+        </dependency>
+        <!-- end of phone dependencies -->
+        
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>transport</artifactId>
+            <version>${elasticsearch.version}</version>
+        </dependency>     
 
 		<dependency>
 			<groupId>org.apache.curator</groupId>
@@ -195,11 +233,6 @@
 			<classifier>hadoop2</classifier>
 			<scope>provided</scope>
 		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch</groupId>
-			<artifactId>elasticsearch</artifactId>
-			<version>1.6.0</version> 
-		</dependency>
 
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
@@ -242,6 +275,17 @@
 		</dependency>
 		<!-- Logging -->
 
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.6.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.6.2</version>
+        </dependency>
+        
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
