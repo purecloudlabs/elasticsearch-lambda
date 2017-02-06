@@ -1,6 +1,8 @@
 package com.inin.analytics.elasticsearch.index.selector;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -66,7 +68,8 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 	 * @param indices
 	 * @return
 	 */
-	public ElasticsearchRoutingStrategy getRoutingStrategyForIndicies(List<ElasticSearchIndexMetadata> indices) {
+	public Set<ElasticsearchRoutingStrategy> getRoutingStrategiesForIndicies(List<ElasticSearchIndexMetadata> indices) {
+	    Set<ElasticsearchRoutingStrategy> strategies = new HashSet<>();
 		ElasticsearchRoutingStrategy routingStrategy = null;
 		for(ElasticSearchIndexMetadata index : indices) {
 			if(index.getRoutingStrategyClassName() == null) {
@@ -74,7 +77,7 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 				routingStrategy = null;
 				break;
 			} else if(routingStrategy == null) {
-				routingStrategy = get(index);
+			    strategies.add(get(index));
 			} else {
 				ElasticsearchRoutingStrategy routingStrategy2 = get(index);
 				if(routingStrategy2 == null || !routingStrategy2.equals(routingStrategy)) {
@@ -83,7 +86,33 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 				}
 			}
 		}
-		return routingStrategy;
+		return strategies;
+	}
+	
+	/**
+	 * Warning, this method only works if all indices contain the same number of shards. Please
+	 * move to getRoutingStrategiesForIndicies(..)
+	 */
+	@Deprecated
+	@Override
+	public ElasticsearchRoutingStrategy getRoutingStrategyForIndicies(List<ElasticSearchIndexMetadata> indices) {
+	    ElasticsearchRoutingStrategy routingStrategy = null;
+	    for(ElasticSearchIndexMetadata index : indices) {
+	        if(index.getRoutingStrategyClassName() == null) {
+	            // If the routing strategy isn't set, then there can be no common strategy
+	            routingStrategy = null;
+	            break;
+	        } else if(routingStrategy == null) {
+	            routingStrategy = get(index);
+	        } else {
+	            ElasticsearchRoutingStrategy routingStrategy2 = get(index);
+	            if(routingStrategy2 == null || !routingStrategy2.equals(routingStrategy)) {
+	                routingStrategy = null;
+	                break;
+	            }
+	        }
+	    }
+	    return routingStrategy;
 	}
 
 	public String getIndexWritable(ElasticSearchIndexMetadata rotatedIndexMetadata) {

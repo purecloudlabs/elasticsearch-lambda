@@ -65,7 +65,6 @@ public class EmbeddedContainerTest {
         .withNodeName("embededESTempLoaderNode")
         .withWorkingDir(esWorkingDir)
         .withClusterName("bulkLoadPartition")
-        .withNumShardsPerIndex(numShardsPerIndex)
         .withSnapshotWorkingLocation(snapshotWorkingLocation)
         .withSnapshotRepoName(snapshotRepoName)
         .withCustomPlugin("customized_plugin_list");

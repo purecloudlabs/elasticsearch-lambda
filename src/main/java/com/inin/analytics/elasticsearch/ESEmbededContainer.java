@@ -13,7 +13,6 @@ import java.util.Map;
 import org.apache.hadoop.mapred.Reporter;
 import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsRequest;
 import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsResponse;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
@@ -44,11 +43,13 @@ public class ESEmbededContainer {
 	}
 	
 	/**
-	 * Flush, optimize, and snapshot an index. Block until complete. 
+	 * Flush, optimize, and snapshot an index. Block until complete.
 	 * 
-	 * @param index
+	 * @param indicies
 	 * @param snapshotName
 	 * @param snapshotRepoName
+	 * @param timeoutMS
+	 * @param reporter
 	 */
 	public void snapshot(List<String> indicies, String snapshotName, String snapshotRepoName, long timeoutMS, Reporter reporter) {
 		/* Flush & optimize before the snapshot.
@@ -88,13 +89,12 @@ public class ESEmbededContainer {
 		}
 	}
 
-	/** 
+	/**
 	 * Block for index snapshots to be complete
-	 *  
+	 * 
 	 * @param snapshotRepoName
-	 * @param index
+	 * @param indicies
 	 * @param timeoutMS
-	 * @param reporter
 	 */
 	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
 		long start = System.currentTimeMillis();
@@ -131,7 +131,6 @@ public class ESEmbededContainer {
 	public static class Builder {
 		private ESEmbededContainer container;
 		private String nodeName;
-		private Integer numShardsPerIndex;
 		private String workingDir;
 		private String clusterName;
 		private String templateName;
@@ -142,7 +141,6 @@ public class ESEmbededContainer {
 
 		public ESEmbededContainer build() {
 			Preconditions.checkNotNull(nodeName);
-			Preconditions.checkNotNull(numShardsPerIndex);
 			Preconditions.checkNotNull(workingDir);
 			Preconditions.checkNotNull(clusterName);
 
@@ -204,7 +202,6 @@ public class ESEmbededContainer {
                 // Configure the cluster with an index template mapping
     			if(templateName != null && templateSource != null) {
     			    org.elasticsearch.common.settings.Settings.Builder indexBuilder = Settings.builder()
-    			            .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, numShardsPerIndex) 
     			            .put("index.refresh_interval", -1) 
     			            .put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
     			            .put("index.load_fixed_bitset_filters_eagerly", false)
@@ -238,36 +235,62 @@ public class ESEmbededContainer {
 			container = new ESEmbededContainer();
 		}
 
+		/**
+		 * @param nodeName
+		 * @return Builder
+		 */
 		public Builder withNodeName(String nodeName) {
 			this.nodeName = nodeName;
 			return this;
 		}
 
-		public Builder withNumShardsPerIndex(Integer numShardsPerIndex) {
-			this.numShardsPerIndex = numShardsPerIndex;
-			return this;
-		}
-
+		/**
+		 * 
+		 * @param workingDir
+		 * @return Builder
+		 */
 		public Builder withWorkingDir(String workingDir) {
 			this.workingDir = workingDir;
 			return this;
 		}
+		
+		/**
+		 * 
+		 * @param clusterName
+		 * @return Builder
+		 */
 		public Builder withClusterName(String clusterName) {
 			this.clusterName = clusterName;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param templateName
+		 * @param templateSource
+		 * @return Builder
+		 */
 		public Builder withTemplate(String templateName, String templateSource) {
 			this.templateName = templateName;
 			this.templateSource = templateSource;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param snapshotWorkingLocation
+		 * @return Builder
+		 */
 		public Builder withSnapshotWorkingLocation(String snapshotWorkingLocation) {
 			this.snapshotWorkingLocation = snapshotWorkingLocation;
 			return this;
 		}
 
+		/**
+		 * 
+		 * @param snapshotRepoName
+		 * @return Builder
+		 */
 		public Builder withSnapshotRepoName(String snapshotRepoName) {
 			this.snapshotRepoName = snapshotRepoName;
 			return this;
@@ -279,6 +302,10 @@ public class ESEmbededContainer {
 		}
 	}
 
+	/**
+	 * 
+	 * @return Node
+	 */
 	public Node getNode() {
 		return node;
 	}

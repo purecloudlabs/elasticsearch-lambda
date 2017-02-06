@@ -113,6 +113,10 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 		}
 	}
 	
+	/**
+	 * @param String 
+	 * @return ElasticSearchIndexMetadata
+	 */
 	public ElasticSearchIndexMetadata getElasticSearchIndexMetadata(String indexNameAtBirth) {
 		String znode = getBaseZnode() + indexNameAtBirth;
 		try {
@@ -152,6 +156,9 @@ public abstract class ElasticsearchIndexRotationManagerZookeeper implements Elas
 		}
 	}
 
+	/**
+	 * @return RebuildPipelineState
+	 */
 	@Override
 	public RebuildPipelineState getRebuildPipelineState() {
 		if(rebuildStateCache == null) {

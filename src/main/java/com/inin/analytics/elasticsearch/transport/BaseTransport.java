@@ -12,6 +12,7 @@ import org.apache.commons.io.filefilter.FileFilterUtils;
 
 import com.google.common.base.Preconditions;
 import com.inin.analytics.elasticsearch.BaseESReducer;
+import com.inin.analytics.elasticsearch.ShardConfig;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy.STORAGE_SYSTEMS;
 
 public abstract class BaseTransport {
@@ -85,7 +86,7 @@ public abstract class BaseTransport {
 		close();
 	}
 	
-    public void placeMissingShards(String snapshotName, String index, int numShards, boolean includeRootManifest) throws IOException {
+    public void placeMissingShards(String snapshotName, String index, ShardConfig shardConfig, boolean includeRootManifest) throws IOException {
         init();
         String destination = removeStorageSystemFromPath(snapshotFinalDestination);
 
