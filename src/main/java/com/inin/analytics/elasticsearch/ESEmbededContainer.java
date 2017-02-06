@@ -1,9 +1,7 @@
 package com.inin.analytics.elasticsearch;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -23,6 +21,7 @@ import org.elasticsearch.snapshots.SnapshotInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.util.IOUtils;
 import com.google.common.base.Preconditions;
 
 /**
@@ -150,7 +149,7 @@ public class ESEmbededContainer {
 			.put("node.name", nodeName)
 			.put("path.data", workingDir)
             .put("path.repo", snapshotWorkingLocation)
-            .put("path.home", "/tmp")
+            .put("path.home", workingDir)
             .put("bootstrap.memory_lock", true)
 			.put("cluster.routing.allocation.disk.watermark.low", "99%") // Nodes don't form a cluster, so routing allocations don't matter
 			.put("cluster.routing.allocation.disk.watermark.high", "99%")
@@ -164,33 +163,7 @@ public class ESEmbededContainer {
 
 			try {
                 //read plugin list
-                ArrayList<Class<?>> pluginClasses = new ArrayList<Class<?>>();
-                if (customPluginListFile != null) {
-                    ClassLoader classloader = this.getClass().getClassLoader();
-                    InputStream is = classloader.getResourceAsStream(customPluginListFile);
-                    if (is != null) {
-                        String deliminator = ";";
-                        String pluginlist = getStringFromInputStream(is, deliminator);
-                        if (pluginlist.isEmpty()) {
-                            logger.error("Plugins should be separated by ;");
-                        } else {
-                            String[] pluginClassnames = pluginlist.split(deliminator);
-                            for (String pluginClassname: pluginClassnames) {
-                                logger.info("Plugin "+pluginClassname+" is loaded.");
-                                try {
-                                    Class<?> pluginClazz = Class.forName(pluginClassname);
-                                    if (pluginClazz.newInstance() instanceof Plugin) {
-                                        pluginClasses.add(pluginClazz);
-                                    }
-                                } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-                                    logger.error("Error in getting plugin classes, {}.", pluginClassname, e);
-                                }
-                            }
-                        }
-                    } else {
-                        logger.info("Not found the custom plugin list. No plugins are loaded.");
-                    }
-                }
+			    ArrayList<Class<?>> pluginClasses = container.getPluginClasses(customPluginListFile);
 
                 // Create the node
                 Collection plugins = pluginClasses;
@@ -322,26 +295,38 @@ public class ESEmbededContainer {
 	    return defaultIndexSettings;
 	}
 
-	private static String getStringFromInputStream(InputStream is, String deliminator) {
-        BufferedReader br = null;
-        StringBuilder sb = new StringBuilder();
-        String line;
-        try {
-            br = new BufferedReader(new InputStreamReader(is));
-            while ((line = br.readLine()) != null) {
-                sb.append(line+deliminator);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
+    public ArrayList<Class<?>> getPluginClasses(String customPluginListFile) {
+        ArrayList<Class<?>> pluginClasses = new ArrayList<Class<?>>();
+        if (customPluginListFile != null) {
+            ClassLoader classloader = this.getClass().getClassLoader();
+            InputStream is = classloader.getResourceAsStream(customPluginListFile);
+            if (is != null) {
+                String deliminator = ";";
                 try {
-                    br.close();
+                    String pluginlist = IOUtils.toString(is);
+                    if (pluginlist.isEmpty()) {
+                        logger.error("Plugins should be separated by ;");
+                    } else {
+                        String[] pluginClassnames = pluginlist.split(deliminator);
+                        for (String pluginClassname: pluginClassnames) {
+                            logger.info("Plugin "+pluginClassname+" is loaded.");
+                            try {
+                                Class<?> pluginClazz = Class.forName(pluginClassname);
+                                if (pluginClazz.newInstance() instanceof Plugin) {
+                                    pluginClasses.add(pluginClazz);
+                                }
+                            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+                                logger.error("Error in getting plugin classes, {}.", pluginClassname, e);
+                            }
+                        }
+                    }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Cannot read custom plugin list, "+customPluginListFile+". Plugin classes should be separate by ;");
                 }
+            } else {
+                logger.info("Not found the custom plugin list. No plugins are loaded.");
             }
         }
-        return sb.toString();
+        return pluginClasses;
     }
 }

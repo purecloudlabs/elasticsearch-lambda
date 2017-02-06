@@ -5,15 +5,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.commons.io.IOUtils;
 import org.elasticsearch.action.admin.cluster.repositories.put.PutRepositoryResponse;
 import org.elasticsearch.action.admin.cluster.snapshots.restore.RestoreSnapshotRequest;
 import org.elasticsearch.action.admin.cluster.snapshots.restore.RestoreSnapshotResponse;
@@ -30,7 +28,6 @@ import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.MetaData;
 import org.elasticsearch.cluster.metadata.RepositoriesMetaData;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.snapshots.SnapshotInfo;
 import org.junit.After;
@@ -66,8 +63,7 @@ public class EmbeddedContainerTest {
         .withWorkingDir(esWorkingDir)
         .withClusterName("bulkLoadPartition")
         .withSnapshotWorkingLocation(snapshotWorkingLocation)
-        .withSnapshotRepoName(snapshotRepoName)
-        .withCustomPlugin("customized_plugin_list");
+        .withSnapshotRepoName(snapshotRepoName);
         
         if(templateName != null && templateJson != null) {
             builder.withTemplate(templateName, templateJson);   
@@ -112,7 +108,12 @@ public class EmbeddedContainerTest {
     private String getTemplate() {
         ClassLoader classloader = this.getClass().getClassLoader();
         InputStream is = classloader.getResourceAsStream("elasticsearch-indicie-template-nested.json");
-        String templateSource = getStringFromInputStream(is, "").replaceAll(" ", "").replaceAll("\t", "");
+        String templateSource = null;
+        try {
+            templateSource = IOUtils.toString(is).replaceAll(" ", "").replaceAll("\t", "").replaceAll("\n", "");
+        } catch (IOException e) {
+            logger.error("Error in getting template.", e);
+        }
         return templateSource;
     }
 
@@ -120,12 +121,6 @@ public class EmbeddedContainerTest {
     public void standardPluginTest() {
         AnalyzeResponse tokenRes = container.getNode().client().admin().indices().prepareAnalyze("this is a test").setAnalyzer("standard").get();
         assertEquals(tokenRes.getTokens().size(), 4);
-    }
-
-    @Test
-    public void phonePluginTest() {
-        AnalyzeResponse phoneRes = container.getNode().client().admin().indices().prepareAnalyze("tel:8177148350").setAnalyzer("phone").get();
-        assertEquals(phoneRes.getTokens().size(), 12);
     }
 
     @Test
@@ -230,52 +225,32 @@ public class EmbeddedContainerTest {
         assertEquals(emailRes.getTokens().size(), 7);
 
         //field mapping
-        emailRes = container.getNode().client().admin().indices().prepareAnalyze(indexName, "field.mapping@inin.com").setField("emailAddressSelf").get();
-        assertEquals(emailRes.getTokens().size(), 2);
+        emailRes = container.getNode().client().admin().indices().prepareAnalyze(indexName, "field.mapping@inin.com").setField("my_field").get();
+        assertEquals(emailRes.getTokens().size(), 7);
     }
 
-    @Test
-    public void listPluginsTest() {
-        //read plugin list
-        String deliminator = ";";
-        String pluginlist = "org.elasticsearch.plugins.analysis.phone.PhonePlugin;org.elasticsearch.index.analysis.PhoneAnalyzer;";
-        String[] pluginClassnames = pluginlist.split(deliminator);
-        ArrayList<Class<?>> pluginClasses = new ArrayList<Class<?>>();
-        for (String pluginClassname: pluginClassnames) {
-            try {
-                Class<?> pluginClazz = Class.forName(pluginClassname);
-                if (pluginClazz.newInstance() instanceof Plugin) {
-                    pluginClasses.add(pluginClazz);
-                }
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-                logger.error("Error in getting plugin classes.", e);
-            }
-        }
-        assertEquals(pluginClasses.size(), 1);
-    }
-
-    private static String getStringFromInputStream(InputStream is, String deliminator) {
-        BufferedReader br = null;
-        StringBuilder sb = new StringBuilder();
-        String line;
-        try {
-            br = new BufferedReader(new InputStreamReader(is));
-            while ((line = br.readLine()) != null) {
-                sb.append(line+deliminator);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return sb.toString();
-    }
+//    private static String getStringFromInputStream(InputStream is, String deliminator) {
+//        BufferedReader br = null;
+//        StringBuilder sb = new StringBuilder();
+//        String line;
+//        try {
+//            br = new BufferedReader(new InputStreamReader(is));
+//            while ((line = br.readLine()) != null) {
+//                sb.append(line+deliminator);
+//            }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } finally {
+//            if (br != null) {
+//                try {
+//                    br.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//        return sb.toString();
+//    }
 
     @After
     public void shutdown() {

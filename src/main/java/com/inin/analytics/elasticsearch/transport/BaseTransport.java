@@ -134,7 +134,6 @@ public abstract class BaseTransport {
 		File file = new File(baseIndexLocation);
 		String[] shardDirectories = file.list(directoryFilter);
 		
-		System.out.println("baseIndexLocation: "+baseIndexLocation);
 		// Figure out which shard has all the data in it. Since we've routed all data to it, there'll only be one
 		Long biggestDirLength = null;
 		String biggestDir = null;
@@ -147,7 +146,6 @@ public abstract class BaseTransport {
 			}
 		}
 		
-		System.out.println("biggestDir: "+biggestDir);
 		return biggestDir;
 	}
 	
