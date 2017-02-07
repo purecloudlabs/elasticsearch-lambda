@@ -163,7 +163,7 @@ public class ESEmbededContainer {
 
 			try {
                 //read plugin list
-			    ArrayList<Class<?>> pluginClasses = container.getPluginClasses(customPluginListFile);
+			    ArrayList<Class<? extends Plugin>> pluginClasses = container.getPluginClasses(customPluginListFile);
 
                 // Create the node
                 Collection plugins = pluginClasses;
@@ -295,8 +295,8 @@ public class ESEmbededContainer {
 	    return defaultIndexSettings;
 	}
 
-    public ArrayList<Class<?>> getPluginClasses(String customPluginListFile) {
-        ArrayList<Class<?>> pluginClasses = new ArrayList<Class<?>>();
+    public ArrayList<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
+        ArrayList<Class<? extends Plugin>> pluginClasses = new ArrayList<Class<? extends Plugin>>();
         if (customPluginListFile != null) {
             ClassLoader classloader = this.getClass().getClassLoader();
             InputStream is = classloader.getResourceAsStream(customPluginListFile);
@@ -313,7 +313,7 @@ public class ESEmbededContainer {
                             try {
                                 Class<?> pluginClazz = Class.forName(pluginClassname);
                                 if (pluginClazz.newInstance() instanceof Plugin) {
-                                    pluginClasses.add(pluginClazz);
+                                    pluginClasses.add(pluginClazz.asSubclass(Plugin.class));
                                 }
                             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
                                 logger.error("Error in getting plugin classes, {}.", pluginClassname, e);

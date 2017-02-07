@@ -229,29 +229,6 @@ public class EmbeddedContainerTest {
         assertEquals(emailRes.getTokens().size(), 7);
     }
 
-//    private static String getStringFromInputStream(InputStream is, String deliminator) {
-//        BufferedReader br = null;
-//        StringBuilder sb = new StringBuilder();
-//        String line;
-//        try {
-//            br = new BufferedReader(new InputStreamReader(is));
-//            while ((line = br.readLine()) != null) {
-//                sb.append(line+deliminator);
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        } finally {
-//            if (br != null) {
-//                try {
-//                    br.close();
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }
-//        return sb.toString();
-//    }
-
     @After
     public void shutdown() {
         try {
