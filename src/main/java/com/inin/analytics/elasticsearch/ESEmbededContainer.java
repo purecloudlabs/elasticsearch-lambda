@@ -309,12 +309,12 @@ public class ESEmbededContainer {
                     } else {
                         String[] pluginClassnames = pluginlist.split(deliminator);
                         for (String pluginClassname: pluginClassnames) {
-                            logger.info("Plugin "+pluginClassname+" is loaded.");
                             try {
                                 Class<?> pluginClazz = Class.forName(pluginClassname);
                                 if (pluginClazz.newInstance() instanceof Plugin) {
                                     pluginClasses.add(pluginClazz.asSubclass(Plugin.class));
                                 }
+                                logger.info("Plugin "+pluginClassname+" is loaded.");
                             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
                                 logger.error("Error in getting plugin classes, {}.", pluginClassname, e);
                             }
