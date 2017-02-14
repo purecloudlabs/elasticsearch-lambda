@@ -163,11 +163,10 @@ public class ESEmbededContainer {
 
 			try {
                 //read plugin list
-			    ArrayList<Class<? extends Plugin>> pluginClasses = container.getPluginClasses(customPluginListFile);
+			    List<Class<? extends Plugin>> pluginClasses = container.getPluginClasses(customPluginListFile);
 
                 // Create the node
-                Collection plugins = pluginClasses;
-                container.setNode(new PluginConfigurableNode(nodeSettings, plugins));
+                container.setNode(new PluginConfigurableNode(nodeSettings, pluginClasses));
 
 	            // Start ES
                 container.getNode().start();
@@ -295,36 +294,34 @@ public class ESEmbededContainer {
 	    return defaultIndexSettings;
 	}
 
-    public ArrayList<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
-        ArrayList<Class<? extends Plugin>> pluginClasses = new ArrayList<Class<? extends Plugin>>();
+    public List<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
+        List<Class<? extends Plugin>> pluginClasses = new ArrayList<Class<? extends Plugin>>();
         if (customPluginListFile != null) {
-            ClassLoader classloader = this.getClass().getClassLoader();
-            InputStream is = classloader.getResourceAsStream(customPluginListFile);
-            if (is != null) {
-                String deliminator = ";";
-                try {
+            try (InputStream is = getClass().getClassLoader().getResourceAsStream(customPluginListFile)) {
+                if (is != null) {
+                    String deliminator = ";";
                     String pluginlist = IOUtils.toString(is);
                     if (pluginlist.isEmpty()) {
-                        logger.error("Plugins should be separated by ;");
+                        logger.error("Plugin list is empty. Plugin classes should be separated by ;");
                     } else {
                         String[] pluginClassnames = pluginlist.split(deliminator);
                         for (String pluginClassname: pluginClassnames) {
-                            try {
-                                Class<?> pluginClazz = Class.forName(pluginClassname);
-                                if (pluginClazz.newInstance() instanceof Plugin) {
-                                    pluginClasses.add(pluginClazz.asSubclass(Plugin.class));
-                                }
-                                logger.info("Plugin "+pluginClassname+" is loaded.");
-                            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-                                logger.error("Error in getting plugin classes, {}.", pluginClassname, e);
+                            Class<?> pluginClazz = Class.forName(pluginClassname);
+                            if (pluginClazz.newInstance() instanceof Plugin) {
+                                pluginClasses.add(pluginClazz.asSubclass(Plugin.class));
                             }
+                            logger.info("Plugin "+pluginClassname+" is loaded.");
                         }
                     }
-                } catch (IOException e) {
-                    logger.error("Cannot read custom plugin list, "+customPluginListFile+". Plugin classes should be separate by ;");
-                }
-            } else {
-                logger.info("Not found the custom plugin list. No plugins are loaded.");
+                } else {
+                    logger.info("Not found the custom plugin list. No plugins are loaded.");
+                }    
+            } catch (ClassNotFoundException e) {
+                logger.error("Cannot find plugin classes. ", e);
+            } catch (InstantiationException | IllegalAccessException e) {
+                logger.error("Error in loading plugin classes. Plugin classes should be separated by ;. ", e);
+            } catch (IOException e) {
+                logger.error("Cannot read custom plugin list. ", e);
             }
         }
         return pluginClasses;

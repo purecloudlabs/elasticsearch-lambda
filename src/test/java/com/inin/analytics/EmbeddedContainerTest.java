@@ -63,6 +63,7 @@ public class EmbeddedContainerTest {
         .withWorkingDir(esWorkingDir)
         .withClusterName("bulkLoadPartition")
         .withSnapshotWorkingLocation(snapshotWorkingLocation)
+        .withCustomPlugin("customized_plugin_list")
         .withSnapshotRepoName(snapshotRepoName);
         
         if(templateName != null && templateJson != null) {
