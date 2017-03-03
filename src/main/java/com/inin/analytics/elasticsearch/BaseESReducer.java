@@ -1,7 +1,5 @@
 package com.inin.analytics.elasticsearch;
 
-import static org.elasticsearch.common.settings.Settings.builder;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -79,26 +77,25 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
     }
 
     private void init(String index) {
-		String templateName = getTemplateName();
-		String templateJson = getTemplate();
-
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode" + partition)
 		.withWorkingDir(esWorkingDir)
 		.withClusterName("bulkLoadPartition:" + partition)
 		.withSnapshotWorkingLocation(snapshotWorkingLocation)
-		.withSnapshotRepoName(snapshotRepoName);
-		
-		if(templateName != null && templateJson != null) {
-			builder.withTemplate(templateName, templateJson);	
-		}
+		.withSnapshotRepoName(snapshotRepoName)
+		.withCustomPlugin("customized_plugin_list");
 		
 		if(esEmbededContainer == null) {
 			esEmbededContainer = builder.build();	
 		} 
 
+		// Put template after building esEmbededContainer but before creating index
+		String templateName = getTemplateName();
+        String templateJson = getTemplate();
+        esEmbededContainer.setTemplate(templateName, templateJson);
+
 		// Create index
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(builder().put("index.number_of_replicas", 0)).get();
+        esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(esEmbededContainer.getDefaultIndexSettings().put("index.number_of_replicas", 0)).get();
 	}
 	
 	/**
@@ -184,5 +181,9 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
         reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
 		
 		esEmbededContainer.deleteSnapshot(SNAPSHOT_NAME, snapshotRepoName);
+	}
+
+	public String getESVersion() {
+	    return esEmbededContainer.getVersion();
 	}
 }

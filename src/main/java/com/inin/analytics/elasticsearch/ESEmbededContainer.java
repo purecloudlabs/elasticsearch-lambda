@@ -34,7 +34,7 @@ public class ESEmbededContainer {
 	private Node node;
 	private long DEFAULT_TIMEOUT_MS = 60 * 30 * 1000; 
 	private static Integer MAX_MERGED_SEGMENT_SIZE_MB = 256;
-	private Settings defaultIndexSettings;
+	private org.elasticsearch.common.settings.Settings.Builder defaultIndexSettings;
 	private static transient Logger logger = LoggerFactory.getLogger(ESEmbededContainer.class);
 	
 	public void snapshot(List<String> index, String snapshotName, String snapshotRepoName, Reporter reporter) {
@@ -171,20 +171,11 @@ public class ESEmbededContainer {
 	            // Start ES
                 container.getNode().start();
 
+                // Set default index setting
+                container.setDefaultIndexSettings();
+                
                 // Configure the cluster with an index template mapping
-    			if(templateName != null && templateSource != null) {
-    			    org.elasticsearch.common.settings.Settings.Builder indexBuilder = Settings.builder()
-    			            .put("index.refresh_interval", -1) 
-    			            .put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
-    			            .put("index.load_fixed_bitset_filters_eagerly", false)
-    			            .put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
-    			            .put("index.merge.policy.max_merge_at_once", 10) 
-    			            .put("index.merge.policy.segments_per_tier", 4)
-    			            .put("index.merge.scheduler.max_thread_count", 1)
-    			            .put("index.compound_format", false) // Explicitly disable compound files
-    			            .put("index.codec", "best_compression"); // Lucene 5/ES 2.0 feature to play with when that's out
-
-                     container.setDefaultIndexSettings(indexBuilder.build());
+                if(templateName != null && templateSource != null) {
     		         container.getNode().client().admin().indices().preparePutTemplate(templateName).setSource(templateSource).get();
     			}
 
@@ -268,6 +259,11 @@ public class ESEmbededContainer {
 			return this;
 		}
 		
+		/**
+         * 
+         * @param customPluginListFile
+         * @return Builder
+         */
 		public Builder withCustomPlugin(String customPluginListFile) {
 		    this.customPluginListFile = customPluginListFile;
 		    return this;
@@ -286,13 +282,32 @@ public class ESEmbededContainer {
 		this.node = node;
 	}
 
-    public void setDefaultIndexSettings(Settings defaultIndexSettings) {
-        this.defaultIndexSettings = defaultIndexSettings;
+    public void setDefaultIndexSettings() {
+        org.elasticsearch.common.settings.Settings.Builder indexBuilder = Settings.builder()
+                .put("index.refresh_interval", -1) 
+                .put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
+                .put("index.load_fixed_bitset_filters_eagerly", false)
+                .put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
+                .put("index.merge.policy.max_merge_at_once", 10) 
+                .put("index.merge.policy.segments_per_tier", 4)
+                .put("index.merge.scheduler.max_thread_count", 1)
+                .put("index.compound_format", false) // Explicitly disable compound files
+                .put("index.codec", "best_compression"); // Lucene 5/ES 2.0 feature to play with when that's out
+
+        this.defaultIndexSettings = indexBuilder;
     }
 
-    public Settings getDefaultIndexSettings() {
+    public org.elasticsearch.common.settings.Settings.Builder getDefaultIndexSettings() {
 	    return defaultIndexSettings;
 	}
+
+    public void setTemplate(String templateName, String templateSource) {
+        node.client().admin().indices().preparePutTemplate(templateName).setSource(templateSource).get();    
+    }
+
+    public String getVersion() {
+        return node.client().admin().cluster().prepareNodesInfo().get().getNodes().get(0).getVersion().toString();
+    }
 
     public List<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
         List<Class<? extends Plugin>> pluginClasses = new ArrayList<Class<? extends Plugin>>();
@@ -302,7 +317,7 @@ public class ESEmbededContainer {
                     String deliminator = ";";
                     String pluginlist = IOUtils.toString(is);
                     if (pluginlist.isEmpty()) {
-                        logger.error("Plugin list is empty. Plugin classes should be separated by ;");
+                        logger.info("Plugin list is empty. Plugin classes should be separated by ;");
                     } else {
                         String[] pluginClassnames = pluginlist.split(deliminator);
                         for (String pluginClassname: pluginClassnames) {

@@ -472,6 +472,7 @@
 		      <version>1.5</version>
 		       <configuration>
 			      <executable>gpg</executable>
+			      <skip>true</skip>
 		       </configuration>
 		      <executions>
 		        <execution>
