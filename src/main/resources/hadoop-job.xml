@@ -6,9 +6,9 @@
   <includeBaseDirectory>false</includeBaseDirectory>
   <dependencySets>
     <dependencySet>
-      <unpack>false</unpack>
+      <unpack>true</unpack>
       <scope>runtime</scope>
-      <outputDirectory>lib</outputDirectory>
+      <outputDirectory>/</outputDirectory>
       <excludes>
         <exclude>${groupId}:${artifactId}</exclude>
       </excludes>

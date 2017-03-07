@@ -537,6 +537,7 @@
 					<archive>
 						<manifest>
 							<mainClass>com.inin.analytics.elasticsearch.driver.Driver</mainClass>
+                                                        <addClasspath>true</addClasspath>
 						</manifest>
 					</archive>
 				</configuration>
