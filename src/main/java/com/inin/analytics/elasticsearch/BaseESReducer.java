@@ -49,6 +49,8 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	// The container handles spinning up our embedded elasticsearch instance
 	private ESEmbededContainer esEmbededContainer;
 	
+	private String esVersion;
+	
 	private ShardConfig shardConfig;
 		
 	// Hold onto some frequently generated objects to cut down on GC overhead 
@@ -89,10 +91,15 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			esEmbededContainer = builder.build();	
 		} 
 
+		esVersion = esEmbededContainer.getVersion();
+		
 		// Put template after building esEmbededContainer but before creating index
 		String templateName = getTemplateName();
         String templateJson = getTemplate();
-        esEmbededContainer.setTemplate(templateName, templateJson);
+        
+        if (templateName != null && templateJson != null) {
+            esEmbededContainer.setTemplate(templateName, templateJson);
+        }
 
 		// Create index
         esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(esEmbededContainer.getDefaultIndexSettings().put("index.number_of_replicas", 0)).get();
@@ -184,6 +191,10 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	}
 
 	public String getESVersion() {
-	    return esEmbededContainer.getVersion();
+	    return esVersion;
+	}
+	
+	public void setESVersion(String esVersion) {
+	    this.esVersion = esVersion;
 	}
 }

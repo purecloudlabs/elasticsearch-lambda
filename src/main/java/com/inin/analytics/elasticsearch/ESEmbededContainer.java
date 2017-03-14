@@ -78,8 +78,8 @@ public class ESEmbededContainer {
 
 		// Snapshot
 		long start = System.currentTimeMillis();
-	    node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).execute();
-        
+		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).setWaitForCompletion(true).execute();
+
 		// ES snapshot restore ignores timers and will block no more than 30s :( You have to block & poll to make sure it's done
 		blockForSnapshot(snapshotRepoName, indicies, timeoutMS);	
 		
@@ -98,7 +98,6 @@ public class ESEmbededContainer {
 	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
 		long start = System.currentTimeMillis();
 		while(System.currentTimeMillis() - start < timeoutMS) {
-
 			GetSnapshotsResponse repos = node.client().admin().cluster().getSnapshots(new GetSnapshotsRequest(snapshotRepoName)).actionGet();
 				for(SnapshotInfo i : repos.getSnapshots()) {
 					if(i.state().completed() && i.successfulShards() == i.totalShards() && i.totalShards() >= indicies.size()) {
@@ -317,7 +316,7 @@ public class ESEmbededContainer {
                     String deliminator = ";";
                     String pluginlist = IOUtils.toString(is);
                     if (pluginlist.isEmpty()) {
-                        logger.info("Plugin list is empty. Plugin classes should be separated by ;");
+                        logger.info("Plugin list is empty.");
                     } else {
                         String[] pluginClassnames = pluginlist.split(deliminator);
                         for (String pluginClassname: pluginClassnames) {

@@ -81,7 +81,7 @@ public class IndexingPostProcessor {
 			
 			// Create all the indexes
 			for(String index : indicies) {
-			    esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).get();
+		        esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(esEmbededContainer.getDefaultIndexSettings()).get();
 			}
 			
 			// Snapshot it
@@ -148,23 +148,29 @@ public class IndexingPostProcessor {
 	 */
 	private ESEmbededContainer getESEmbededContainer(Configuration conf, Class<? extends BaseESReducer> reducerClass) throws IOException, InstantiationException, IllegalAccessException {
 		ESEmbededContainer esEmbededContainer = null;
-		BaseESReducer red = reducerClass.newInstance();
-		String templateName = red.getTemplateName();
-		String templateJson = red.getTemplate();
-		red.close();
 		
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode")
 		.withWorkingDir(conf.get(ConfigParams.ES_WORKING_DIR.toString()))
 		.withClusterName("bulkLoadPartition")
 		.withSnapshotWorkingLocation(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString()))
-		.withSnapshotRepoName(conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
-		
-		if(templateName != null && templateJson != null) {
-			builder.withTemplate(templateName, templateJson);	
-		}
+		.withSnapshotRepoName(conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()))
+		.withCustomPlugin("customized_plugin_list");
 		
 		esEmbededContainer = builder.build();
+		
+        BaseESReducer red = reducerClass.newInstance();
+        if (red.getESVersion() == null) {
+            red.setESVersion(esEmbededContainer.getVersion());
+        }
+        String templateName = red.getTemplateName();
+        String templateJson = red.getTemplate();
+        red.close();
+        
+        if (templateName != null && templateJson != null) {
+            esEmbededContainer.setTemplate(templateName, templateJson);
+        }
+		
 		return esEmbededContainer;
 	}
 }
