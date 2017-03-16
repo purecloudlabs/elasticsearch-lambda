@@ -101,20 +101,16 @@ public class S3SnapshotTransport extends BaseTransport {
 
 	protected void transferDir(String shardDestinationBucket, String localShardPath, String shard) {
 		MultipleFileUpload mfu = tx.uploadDirectory(shardDestinationBucket + shard, null, new File(localShardPath), true, objectMetadataProvider);
+		logger.info("Transfering dir " + localShardPath + " to " + shardDestinationBucket + " with shard " + shard);
 		
 		/**
 		 * TODO: Hadoop has a configurable timeout for how long a reducer can be non-responsive (usually 600s). If 
 		 * this takes >600s hadoop will kill the task. We need to ping the reporter to let it know it's alive
 		 * in the case where the file transfer is taking a while.
 		 */
-		while(!mfu.isDone()) {
-			logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-			}
-		}
+		while(!mfu.isDone());
+		Preconditions.checkState(mfu.getState().equals(TransferState.Completed), "Dir " + localShardPath + " failed to upload with state: " + mfu.getState());
+		logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
 	}
 	
 	protected void transferFile(boolean deleteSource, String bucket, String filename, String localDirectory) {
