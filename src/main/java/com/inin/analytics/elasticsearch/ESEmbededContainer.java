@@ -188,6 +188,7 @@ public class ESEmbededContainer {
     			}
             } catch (NodeValidationException e) {
                 logger.error("Error in getting ES node. ", e);
+                return null;
             }
 
 			return container;
@@ -309,7 +310,7 @@ public class ESEmbededContainer {
     }
 
     public List<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
-        List<Class<? extends Plugin>> pluginClasses = new ArrayList<Class<? extends Plugin>>();
+        List<Class<? extends Plugin>> pluginClasses = new ArrayList<>();
         if (customPluginListFile != null) {
             try (InputStream is = getClass().getClassLoader().getResourceAsStream(customPluginListFile)) {
                 if (is != null) {

@@ -109,6 +109,14 @@ public class S3SnapshotTransport extends BaseTransport {
 		 * in the case where the file transfer is taking a while.
 		 */
 		while(!mfu.isDone());
+//        while (!mfu.isDone()) {
+//            logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//        }
 		Preconditions.checkState(mfu.getState().equals(TransferState.Completed), "Dir " + localShardPath + " failed to upload with state: " + mfu.getState());
 		logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
 	}
@@ -160,12 +168,13 @@ public class S3SnapshotTransport extends BaseTransport {
         String[] pieces = StringUtils.split(destination, "/");
         String bucket = pieces[0];
         String key = destination.substring(bucket.length() + 1);
+        String prefix = key + filename;
         
         // AWS SDK doesn't have an "exists" method so you have to list and check if the key is there. Thanks Obama
         ObjectListing objects = tx.getAmazonS3Client().listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(key));
 
         for (S3ObjectSummary objectSummary: objects.getObjectSummaries()) {
-            if (objectSummary.getKey().startsWith(key + filename)) {
+            if (objectSummary.getKey().startsWith(prefix)) {
                 return true;
             }
         }

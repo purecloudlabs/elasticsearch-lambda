@@ -1,39 +1,39 @@
 {
     "template": "*",
-	"settings": {
-		"analysis": {
-			"filter": {
-				"email": {
-					"type": "pattern_capture",
-					"preserve_original": 1,
-					"patterns": [
-						"([^@]+)",
-						"(\\p{L}+)",
-						"(\\d+)",
-						"@(.+)"
-					]
-				}
-			},
-			"analyzer": {
-				"email": {
-					"tokenizer": "uax_url_email",
-					"filter": [
-						"email",
-						"lowercase",
-						"unique"
-					]
-				}
-			}
-		}
-	},
-	"mappings": {
-		"my_type": {
-			"properties": {
-				"my_field": {
-					"type": "text",
-					"analyzer": "email"
-				}
-			}
-		}
-	}
+    "settings": {
+        "analysis": {
+            "filter": {
+                "email": {
+                    "type": "pattern_capture",
+                    "preserve_original": 1,
+                    "patterns": [
+                        "([^@]+)",
+                        "(\\p{L}+)",
+                        "(\\d+)",
+                        "@(.+)"
+                    ]
+                }
+            },
+            "analyzer": {
+                "email": {
+                    "tokenizer": "uax_url_email",
+                    "filter": [
+                        "email",
+                        "lowercase",
+                        "unique"
+                    ]
+                }
+            }
+        }
+    },
+    "mappings": {
+        "my_type": {
+            "properties": {
+                "my_field": {
+                    "type": "text",
+                    "analyzer": "email"
+                }
+            }
+        }
+    }
 }

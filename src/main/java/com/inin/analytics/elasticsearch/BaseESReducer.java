@@ -91,7 +91,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			esEmbededContainer = builder.build();	
 		} 
 
-		esVersion = esEmbededContainer.getVersion();
+		setESVersion(esEmbededContainer.getVersion());
 		
 		// Put template after building esEmbededContainer but before creating index
 		String templateName = getTemplateName();

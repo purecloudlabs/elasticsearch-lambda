@@ -18,7 +18,6 @@ import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy.STOR
 public abstract class BaseTransport {
 	protected String snapshotWorkingLocation;
 	protected String snapshotFinalDestination;
-	private DirectoryFilter directoryFilter = new DirectoryFilter();
 	
 	public BaseTransport(String snapshotWorkingLocation, String snapshotFinalDestination) {
 		this.snapshotWorkingLocation = snapshotWorkingLocation;
@@ -122,54 +121,6 @@ public abstract class BaseTransport {
 
 		return s;
 	}
-	
-	/**
-	 * We've snapshotted an index with all data routed to a single shard (1 shard per reducer). Problem is 
-	 * we don't know which shard # it routed all the data to. We can determine that by picking 
-	 * out the largest shard folder and renaming it to the shard # we want it to be.
-	 */
-	private String getShardSource(String index) throws IOException {
-		// Get a list of shards in the snapshot
-		String baseIndexLocation = snapshotWorkingLocation + "indices" + BaseESReducer.DIR_SEPARATOR + index + BaseESReducer.DIR_SEPARATOR;
-		File file = new File(baseIndexLocation);
-		String[] shardDirectories = file.list(directoryFilter);
-		
-		// Figure out which shard has all the data in it. Since we've routed all data to it, there'll only be one
-		Long biggestDirLength = null;
-		String biggestDir = null;
-		for(String directory : shardDirectories) {
-			File curDir = new File(baseIndexLocation + directory);
-                        long curDirLength = FileUtils.sizeOfDirectory(curDir);
-			if(biggestDirLength == null || biggestDirLength < curDirLength) {
-				biggestDir = directory;
-				biggestDirLength = curDirLength;
-			}
-		}
-		
-		return biggestDir;
-	}
-	
-	/**
-	 * We're building 1 shard at a time. Therefore each snapshot has a bunch of empty
-	 * shards and 1 shard with all the data in it. This deletes all the empty shard folders
-	 * for you.
-	 * 
-	 * @param index
-	 * @param biggestDir
-	 * @throws IOException
-	 */
-	private void cleanEmptyShards(String index, String biggestDir) throws IOException {
-        String baseIndexLocation = snapshotWorkingLocation + "indices" + BaseESReducer.DIR_SEPARATOR + index + BaseESReducer.DIR_SEPARATOR;
-        File file = new File(baseIndexLocation);
-        String[] shardDirectories = file.list(directoryFilter);
-        
-        // Remove the empty shards
-        for(String directory : shardDirectories) {
-            if(!directory.equals(biggestDir)) {
-                FileUtils.deleteDirectory(new File(baseIndexLocation + directory));
-            }
-        }
-    }
 	
 	private class DirectoryFilter implements FilenameFilter {
 		

@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.commons.io.IOUtils;
 import org.elasticsearch.action.admin.cluster.repositories.put.PutRepositoryResponse;
@@ -55,7 +54,7 @@ public class EmbeddedContainerTest {
         indexName = "convtestindex";
         numShardsPerIndex = 1;
         
-        String templateName = getTemplateName();
+        String templateName = "test_template";
         String templateJson = getTemplate();
 
         ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
@@ -102,10 +101,6 @@ public class EmbeddedContainerTest {
         assertTrue(indres.getIndices()[0].equals(indexName));
     }
 
-    private String getTemplateName() {
-        return "test_template";
-    }
-
     private String getTemplate() {
         ClassLoader classloader = this.getClass().getClassLoader();
         InputStream is = classloader.getResourceAsStream("elasticsearch-indicie-template-nested.json");
@@ -150,7 +145,7 @@ public class EmbeddedContainerTest {
     }
 
     @Test
-    public void snapshotRestoreTest() {
+    public void snapshotRestoreTest() throws Exception {
         //add data
         String indexType = "testtype";
         String docId = "7821ad0f-a7a4-4321-9997-ccc9b89caabc";
@@ -180,32 +175,27 @@ public class EmbeddedContainerTest {
         assertEquals(snapshots.get(0).snapshotId().getName(), snapshotName);
         
         //restore the snapshot
-        try {
-            //step1: remove existing data
-            container.getNode().client().prepareDelete(indexName, indexType, docId).get();
-            GetResponse getRes = container.getNode().client().prepareGet(indexName, indexType, docId).get();
-            assertFalse(getRes.isExists());
+        //step1: remove existing data
+        container.getNode().client().prepareDelete(indexName, indexType, docId).get();
+        GetResponse getRes = container.getNode().client().prepareGet(indexName, indexType, docId).get();
+        assertFalse(getRes.isExists());
 
-            //step2: close indices
-            CloseIndexResponse closeIndexRes = container.getNode().client().admin().indices().close(new CloseIndexRequest(indexName)).get();
-            assertTrue(closeIndexRes.isAcknowledged());
+        //step2: close indices
+        CloseIndexResponse closeIndexRes = container.getNode().client().admin().indices().close(new CloseIndexRequest(indexName)).get();
+        assertTrue(closeIndexRes.isAcknowledged());
 
-            GetIndexResponse getIndexRes = container.getNode().client().admin().indices().prepareGetIndex().get();
-            assertFalse(Arrays.asList(getIndexRes.getIndices()).contains(indexName));
+        GetIndexResponse getIndexRes = container.getNode().client().admin().indices().prepareGetIndex().get();
+        assertFalse(Arrays.asList(getIndexRes.getIndices()).contains(indexName));
 
-            //step3: restore snapshot
-            RestoreSnapshotRequest restoreSnapshotRequest = new RestoreSnapshotRequest(snapshotRepoName, snapshotName).waitForCompletion(true);
-            RestoreSnapshotResponse restoreSnapshotRes = container.getNode().client().admin().cluster().restoreSnapshot(restoreSnapshotRequest).actionGet();
-            assertEquals(restoreSnapshotRes.status(), RestStatus.OK);
+        //step3: restore snapshot
+        RestoreSnapshotRequest restoreSnapshotRequest = new RestoreSnapshotRequest(snapshotRepoName, snapshotName).waitForCompletion(true);
+        RestoreSnapshotResponse restoreSnapshotRes = container.getNode().client().admin().cluster().restoreSnapshot(restoreSnapshotRequest).actionGet();
+        assertEquals(restoreSnapshotRes.status(), RestStatus.OK);
 
-            //step4: confirm if data is restored
-            getIndexRes = container.getNode().client().admin().indices().prepareGetIndex().get();
-            assertTrue(Arrays.asList(getIndexRes.getIndices()).contains(indexName));
-            assertTrue(container.getNode().client().prepareGet(indexName, indexType, docId).get().isExists());
-
-        } catch (InterruptedException |ExecutionException e) {
-            logger.error("Error in restoring snapshot.", e);
-        }
+        //step4: confirm if data is restored
+        getIndexRes = container.getNode().client().admin().indices().prepareGetIndex().get();
+        assertTrue(Arrays.asList(getIndexRes.getIndices()).contains(indexName));
+        assertTrue(container.getNode().client().prepareGet(indexName, indexType, docId).get().isExists());
     }
 
     @Test
