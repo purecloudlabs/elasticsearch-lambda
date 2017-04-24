@@ -44,7 +44,7 @@ public class RealtimeIndexSelectionStrategyLagged implements RealtimeIndexSelect
 		if(rotatedIndexMetadata != null && rotatedIndexMetadata.getRoutingStrategyClassName() != null && !rotatedIndexMetadata.getDate().isAfter(now.minusDays(LAG).toLocalDate())) {
 			ElasticsearchRoutingStrategy strategy;
 			try {
-				strategy = (ElasticsearchRoutingStrategy) Class.forName(rotatedIndexMetadata.getRoutingStrategyClassName(), true, ClassLoader.getSystemClassLoader()).newInstance();
+				strategy = (ElasticsearchRoutingStrategy) Class.forName(rotatedIndexMetadata.getRoutingStrategyClassName()).newInstance();
 				strategy.configure(rotatedIndexMetadata);
 				return strategy;
 			} catch (InstantiationException e) {
