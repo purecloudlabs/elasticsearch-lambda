@@ -473,6 +473,8 @@
 		      <version>1.5</version>
 		       <configuration>
 			      <executable>gpg</executable>
+			      <!-- this is required for testing -->
+			      <skip>true</skip>
 		       </configuration>
 		      <executions>
 		        <execution>
