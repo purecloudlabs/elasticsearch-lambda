@@ -180,7 +180,7 @@ public class ESEmbededContainer {
 
     			// Create the snapshot repo
     			if(snapshotWorkingLocation != null && snapshotRepoName != null) {
-    				Map<String, Object> settings = new HashMap<>();
+    				Map<String, Object> settings = new HashMap<>(4);
     				settings.put("location", snapshotWorkingLocation);
     				settings.put("compress", true);
     				settings.put("max_snapshot_bytes_per_sec", "400mb"); // The default 20mb/sec is very slow for a local disk to disk snapshot
