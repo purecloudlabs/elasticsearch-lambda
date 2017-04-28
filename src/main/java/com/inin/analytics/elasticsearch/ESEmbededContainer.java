@@ -58,6 +58,7 @@ public class ESEmbededContainer {
 		 * operation to succeed, but update a counter or something to let the hadoop framework
 		 * know the process is still alive. 
 		 */  
+	    logger.info("Snapshot {} indices: {}", snapshotName, indicies);
 		TimeValue v = new TimeValue(timeoutMS);
 		for(String index : indicies) {
 			long start = System.currentTimeMillis();
