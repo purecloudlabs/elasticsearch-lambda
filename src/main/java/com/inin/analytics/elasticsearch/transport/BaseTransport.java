@@ -2,7 +2,6 @@ package com.inin.analytics.elasticsearch.transport;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Collection;
 
@@ -120,13 +119,5 @@ public abstract class BaseTransport {
 		}
 
 		return s;
-	}
-	
-	private class DirectoryFilter implements FilenameFilter {
-		
-		@Override
-		public boolean accept(File current, String name) {
-			return new File(current, name).isDirectory();
-		}
 	}
 }
