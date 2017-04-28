@@ -91,6 +91,7 @@ public class IndexingPostProcessor {
 
 			for(String index : indicies) {
 				try{
+				    System.out.println("index "+index+" manifestuploaded="+rootManifestUploaded);
 					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index, shardConfig, !rootManifestUploaded);
 					// The root level manifests are the same on each one, so it need only be uploaded once
 					rootManifestUploaded = false;
