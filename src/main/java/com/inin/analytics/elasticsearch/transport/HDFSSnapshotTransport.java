@@ -61,9 +61,12 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 	protected void transferFile(boolean deleteSource, String destination, String filename, String localDirectory) throws IOException {
 		Path source = new Path(localDirectory + BaseESReducer.DIR_SEPARATOR + filename);
 		ensurePathExists(destination);
+		if (!destination.endsWith(String.valueOf(BaseESReducer.DIR_SEPARATOR))) {
+		    destination = destination.concat(String.valueOf(BaseESReducer.DIR_SEPARATOR));
+		}
 
 		try{
-			hdfsFileSystem.copyFromLocalFile(deleteSource, true, source, new Path(destination + BaseESReducer.DIR_SEPARATOR + filename));	
+            hdfsFileSystem.copyFromLocalFile(deleteSource, true, source, new Path(destination + filename));   
 		}
 		catch(LeaseExpiredException | RemoteException e) {
 			// This is an expected race condition where 2 reducers are trying to write the manifest files at the same time. That's okay, it only has to succeed once. 
@@ -73,12 +76,23 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 
 	@Override
 	protected void transferDir(String destination, String localShardPath, String shard) throws IOException {
-		destination = destination + shard + BaseESReducer.DIR_SEPARATOR;
+		if (!destination.endsWith(String.valueOf(BaseESReducer.DIR_SEPARATOR))) {
+		    destination = destination.concat(String.valueOf(BaseESReducer.DIR_SEPARATOR));
+		}
+        if (!shard.endsWith(String.valueOf(BaseESReducer.DIR_SEPARATOR))) {
+            shard = shard.concat(String.valueOf(BaseESReducer.DIR_SEPARATOR));
+        }
+		destination = destination + shard;
+        
 		ensurePathExists(destination);
 		try{
 			File[] files = new File(localShardPath).listFiles();
-			for (File file : files) {
-				transferFile(true, destination, file.getName(), localShardPath);
+			if (files != null) {
+                for (File file : files) {
+                    transferFile(true, destination, file.getName(), localShardPath);
+                }
+			} else {
+                logger.warn("Transfered directory is empty: localShardPath="+localShardPath);
 			}
 		} catch(FileNotFoundException e) {
 			throw new FileNotFoundException("Exception copying " + localShardPath + " to " + destination);
@@ -89,4 +103,9 @@ public class HDFSSnapshotTransport  extends BaseTransport {
 	protected boolean checkExists(String destination, Integer shardNumber) throws IOException {
 		return hdfsFileSystem.exists(new Path(destination + shardNumber));
 	}
+
+	@Override
+    protected boolean checkExists(String destination, String filename) throws IOException {
+        return hdfsFileSystem.exists(new Path(destination + filename));
+    }
 }

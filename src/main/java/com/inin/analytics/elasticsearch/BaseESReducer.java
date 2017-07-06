@@ -1,7 +1,5 @@
 package com.inin.analytics.elasticsearch;
 
-import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -19,7 +17,7 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.rest.RestStatus;
 import com.inin.analytics.elasticsearch.transport.SnapshotTransportStrategy;
 
 public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable, Text> {
@@ -51,6 +49,8 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	// The container handles spinning up our embedded elasticsearch instance
 	private ESEmbededContainer esEmbededContainer;
 	
+	private String esVersion;
+	
 	private ShardConfig shardConfig;
 		
 	// Hold onto some frequently generated objects to cut down on GC overhead 
@@ -79,29 +79,30 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
     }
 
     private void init(String index) {
-		String templateName = getTemplateName();
-		String templateJson = getTemplate();
-
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode" + partition)
 		.withWorkingDir(esWorkingDir)
 		.withClusterName("bulkLoadPartition:" + partition)
 		.withSnapshotWorkingLocation(snapshotWorkingLocation)
-		.withSnapshotRepoName(snapshotRepoName);
-		
-		if(templateName != null && templateJson != null) {
-			builder.withTemplate(templateName, templateJson);	
-		}
+		.withSnapshotRepoName(snapshotRepoName)
+		.withCustomPlugin("customized_plugin_list");
 		
 		if(esEmbededContainer == null) {
 			esEmbededContainer = builder.build();	
 		} 
+
+		setESVersion(esEmbededContainer.getVersion());
 		
+		// Put template after building esEmbededContainer but before creating index
+		String templateName = getTemplateName();
+        String templateJson = getTemplate();
+        
+        if (templateName != null && templateJson != null) {
+            esEmbededContainer.setTemplate(templateName, templateJson);
+        }
+
 		// Create index
-		esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder()
-		        .put("index.number_of_replicas", 0)
-		        .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, shardConfig.getShardsForIndex(index))
-		        ).get();
+        esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(esEmbededContainer.getDefaultIndexSettings().put("index.number_of_replicas", 0)).get();
 	}
 	
 	/**
@@ -152,7 +153,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 			json = line.toString().substring(pre.length());
 
 			IndexResponse response = esEmbededContainer.getNode().client().prepareIndex(indexName, indexType).setId(docId).setRouting(routing).setSource(json).execute().actionGet();
-			if(response.isCreated()) {
+			if(response.status() == RestStatus.CREATED) {
 				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_CREATED, 1l);
 			} else {
 				reporter.incrCounter(JOB_COUNTER.INDEX_DOC_NOT_CREATED, 1l);
@@ -160,7 +161,7 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 		}
 
 		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_INDEXING_MS, System.currentTimeMillis() - start);
-		
+        
 		snapshot(indexName, reporter);
 		output.collect(NullWritable.get(), new Text(indexName));
 	}
@@ -175,17 +176,25 @@ public abstract class BaseESReducer implements Reducer<Text, Text, NullWritable,
 	}
 
 	public void snapshot(String index, Reporter reporter) throws IOException {
-		esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
-		
+	    esEmbededContainer.snapshot(Arrays.asList(index), SNAPSHOT_NAME, snapshotRepoName, reporter);
+
 		// Delete the index to free up that space
 		ActionFuture<DeleteIndexResponse> response = esEmbededContainer.getNode().client().admin().indices().delete(new DeleteIndexRequest(index));
 		while(!response.isDone());
 		
 		// Move the shard snapshot to the destination
 		long start = System.currentTimeMillis();
-		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME, index);
-		reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
+		SnapshotTransportStrategy.get(snapshotWorkingLocation, snapshotFinalDestination).execute(SNAPSHOT_NAME);
+        reporter.incrCounter(JOB_COUNTER.TIME_SPENT_TRANSPORTING_SNAPSHOT_MS, System.currentTimeMillis() - start);
 		
 		esEmbededContainer.deleteSnapshot(SNAPSHOT_NAME, snapshotRepoName);
+	}
+
+	public String getESVersion() {
+	    return esVersion;
+	}
+	
+	public void setESVersion(String esVersion) {
+	    this.esVersion = esVersion;
 	}
 }

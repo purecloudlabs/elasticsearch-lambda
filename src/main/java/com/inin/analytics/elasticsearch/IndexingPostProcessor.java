@@ -1,7 +1,5 @@
 package com.inin.analytics.elasticsearch;
 
-import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -20,7 +18,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +51,7 @@ public class IndexingPostProcessor {
 			Map<String, Integer> numShardsGenerated = new HashMap<String, Integer>();
 
 			// Each reducer spits out it's own manifest file, merge em all together into 1 file
-			FileUtil.copyMerge(fs, jobOutput, fs, manifestFile, false, conf, "");
+            FileUtil.copyMerge(fs, jobOutput, fs, manifestFile, false, conf, "");
 
 			// Read the merged file, de-duping entries as it reads
 			BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(manifestFile)));
@@ -84,15 +81,14 @@ public class IndexingPostProcessor {
 			
 			// Create all the indexes
 			for(String index : indicies) {
-			     esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(settingsBuilder()
-			                .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, shardConfig.getShardsForIndex(index))).get();
+		        esEmbededContainer.getNode().client().admin().indices().prepareCreate(index).setSettings(esEmbededContainer.getDefaultIndexSettings()).get();
 			}
-
+			
 			// Snapshot it
 			List<String> indexesToSnapshot = new ArrayList<>();
 			indexesToSnapshot.addAll(indicies);
 			esEmbededContainer.snapshot(indexesToSnapshot, BaseESReducer.SNAPSHOT_NAME, conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()), null);
-			
+
 			for(String index : indicies) {
 				try{
 					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index, shardConfig, !rootManifestUploaded);
@@ -106,10 +102,10 @@ public class IndexingPostProcessor {
 				// Re-write the manifest to local disk
 				writer.println(index);	
 			}
-			
+
 			// Clean up index from embedded instance
 			for(String index : indicies) {
-				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();	
+				esEmbededContainer.getNode().client().admin().indices().prepareDelete(index).execute();
 			}
 
 			writer.close();
@@ -118,7 +114,7 @@ public class IndexingPostProcessor {
 			fs.copyFromLocalFile(new Path(scratchFile), manifestFile);
 		} finally {
 			if(esEmbededContainer != null) {
-				esEmbededContainer.getNode().close();
+                esEmbededContainer.getNode().close();
 				while(!esEmbededContainer.getNode().isClosed());
 			}
 			FileUtils.deleteDirectory(new File(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString())));
@@ -152,24 +148,29 @@ public class IndexingPostProcessor {
 	 */
 	private ESEmbededContainer getESEmbededContainer(Configuration conf, Class<? extends BaseESReducer> reducerClass) throws IOException, InstantiationException, IllegalAccessException {
 		ESEmbededContainer esEmbededContainer = null;
-		BaseESReducer red = reducerClass.newInstance();
-		String templateName = red.getTemplateName();
-		String templateJson = red.getTemplate();
-		red.close();
 		
 		ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
 		.withNodeName("embededESTempLoaderNode")
-		.withInMemoryBackedIndexes(true)
 		.withWorkingDir(conf.get(ConfigParams.ES_WORKING_DIR.toString()))
 		.withClusterName("bulkLoadPartition")
 		.withSnapshotWorkingLocation(conf.get(ConfigParams.SNAPSHOT_WORKING_LOCATION_CONFIG_KEY.toString()))
-		.withSnapshotRepoName(conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()));
-		
-		if(templateName != null && templateJson != null) {
-			builder.withTemplate(templateName, templateJson);	
-		}
+		.withSnapshotRepoName(conf.get(ConfigParams.SNAPSHOT_REPO_NAME_CONFIG_KEY.toString()))
+		.withCustomPlugin("customized_plugin_list");
 		
 		esEmbededContainer = builder.build();
+		
+        BaseESReducer red = reducerClass.newInstance();
+        if (red.getESVersion() == null) {
+            red.setESVersion(esEmbededContainer.getVersion());
+        }
+        String templateName = red.getTemplateName();
+        String templateJson = red.getTemplate();
+        red.close();
+        
+        if (templateName != null && templateJson != null) {
+            esEmbededContainer.setTemplate(templateName, templateJson);
+        }
+		
 		return esEmbededContainer;
 	}
 }

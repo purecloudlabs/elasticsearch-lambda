@@ -63,7 +63,26 @@ ElasticsearchRoutingStrategyV1: Two parameters: numShards & numShardsPerOrg. A n
  * examplePrep hdfs:///tmp/test/data/ hdfs:///tmp/test/json/ _rebuild_20141030012508 5 2
  * esIndexRebuildExample hdfs:///tmp/test/json/ /media/ephemeral0/tmp/bulkload/ hdfs:///tmp/snapshotrepo/ my_backup /media/ephemeral0/tmp/esrawdata/ 1 5 100 hdfs:///tmp/manifest/
 
- 
+
+## Custom plugins
+You need to set up the following to load custom plugins you developed into elasticsearch.
+
+ * include your plugin and its depending jars into pom.xml
+ * list plugin classname(s) in a file separated by semicolon and place the list file into resources directory (eg. src/main/resources/)
+ ** example filename: custom_plugin_list
+```
+org.elasticsearch.plugins.analysis.myplugin.MyPlugin;org.elasticsearch.plugins.analysis.yourplugin.YourPlugin;
+```
+ * set plugin file name when you build ESEmbededContainer
+```XML
+ ESEmbededContainer.Builder builder = new ESEmbededContainer.Builder()
+        .withNodeName("YourNodeName")
+        .withWorkingDir("YourWorkingDir")
+        .withClusterName("YourClusterName")
+        .withCustomPlugin("custom_plugin_list");
+```
+
+
 ## Running Configs (for eclipse/IDE) 
 You can experiment via these run configs ran in series
  
@@ -80,6 +99,7 @@ Prepare some data for the indexing job
 Build Elasticsearch indexes, snapshot them, and transport them to a snapshot repository on hdfs (s3 paths also allowed)
 
  * esIndexRebuildExample /tmp/datajson/ /tmp/bulkload110/ hdfs:///tmp/snapshotrepo110/ my_backup /tmp/esrawdata1010/ 1 5 2 /tmp/manifest110/
+
 
 ### Can I use HDFS or NFS for Elasticsearch data?
 

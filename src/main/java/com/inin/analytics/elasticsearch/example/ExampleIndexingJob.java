@@ -1,5 +1,8 @@
 package com.inin.analytics.elasticsearch.example;
 
+import java.io.File;
+
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -60,6 +63,11 @@ public class ExampleIndexingJob implements Tool {
 
 		Path jobOutput = new Path(manifestLocation + "/raw/");
 		Path manifestFile = new Path(manifestLocation + "manifest");
+
+		File outputfile = new File(jobOutput.toUri().toString());
+		if (outputfile.exists()) {
+	        FileUtils.deleteDirectory(outputfile);
+		}
 
 		FileOutputFormat.setOutputPath(job, jobOutput);
 

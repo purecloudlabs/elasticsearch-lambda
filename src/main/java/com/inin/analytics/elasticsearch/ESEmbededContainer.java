@@ -1,7 +1,9 @@
 package com.inin.analytics.elasticsearch;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
-
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,16 +11,17 @@ import java.util.Map;
 import org.apache.hadoop.mapred.Reporter;
 import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsRequest;
 import org.elasticsearch.action.admin.cluster.snapshots.get.GetSnapshotsResponse;
-import org.elasticsearch.cluster.metadata.IndexMetaData;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
-import org.elasticsearch.plugins.PluginsService;
+import org.elasticsearch.node.NodeValidationException;
+import org.elasticsearch.node.internal.InternalSettingsPreparer;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.snapshots.SnapshotInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.util.IOUtils;
 import com.google.common.base.Preconditions;
 
 /**
@@ -31,6 +34,7 @@ public class ESEmbededContainer {
 	private Node node;
 	private long DEFAULT_TIMEOUT_MS = 60 * 30 * 1000; 
 	private static Integer MAX_MERGED_SEGMENT_SIZE_MB = 256;
+	private org.elasticsearch.common.settings.Settings.Builder defaultIndexSettings;
 	private static transient Logger logger = LoggerFactory.getLogger(ESEmbededContainer.class);
 	
 	public void snapshot(List<String> index, String snapshotName, String snapshotRepoName, Reporter reporter) {
@@ -54,6 +58,7 @@ public class ESEmbededContainer {
 		 * operation to succeed, but update a counter or something to let the hadoop framework
 		 * know the process is still alive. 
 		 */  
+	    logger.info("Snapshot {} indices: {}", snapshotName, indicies);
 		TimeValue v = new TimeValue(timeoutMS);
 		for(String index : indicies) {
 			long start = System.currentTimeMillis();
@@ -66,7 +71,7 @@ public class ESEmbededContainer {
 
 			// Merge
 			start = System.currentTimeMillis();
-			node.client().admin().indices().prepareOptimize(index).get(v);
+			node.client().admin().indices().prepareForceMerge(index).get(v);
 			if(reporter != null) {
 				reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_MERGING_MS, System.currentTimeMillis() - start);
 			}
@@ -74,7 +79,7 @@ public class ESEmbededContainer {
 
 		// Snapshot
 		long start = System.currentTimeMillis();
-		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).execute();
+		node.client().admin().cluster().prepareCreateSnapshot(snapshotRepoName, snapshotName).setIndices((String[]) indicies.toArray(new String[0])).setWaitForCompletion(true).execute();
 
 		// ES snapshot restore ignores timers and will block no more than 30s :( You have to block & poll to make sure it's done
 		blockForSnapshot(snapshotRepoName, indicies, timeoutMS);	
@@ -82,7 +87,6 @@ public class ESEmbededContainer {
 		if(reporter != null) {
 			reporter.incrCounter(BaseESReducer.JOB_COUNTER.TIME_SPENT_SNAPSHOTTING_MS, System.currentTimeMillis() - start);
 		}
-
 	}
 
 	/**
@@ -95,7 +99,6 @@ public class ESEmbededContainer {
 	private void blockForSnapshot(String snapshotRepoName, List<String> indicies, long timeoutMS) {
 		long start = System.currentTimeMillis();
 		while(System.currentTimeMillis() - start < timeoutMS) {
-
 			GetSnapshotsResponse repos = node.client().admin().cluster().getSnapshots(new GetSnapshotsRequest(snapshotRepoName)).actionGet();
 				for(SnapshotInfo i : repos.getSnapshots()) {
 					if(i.state().completed() && i.successfulShards() == i.totalShards() && i.totalShards() >= indicies.size()) {
@@ -118,6 +121,12 @@ public class ESEmbededContainer {
 		node.client().admin().cluster().prepareDeleteSnapshot(snapshotRepoName, snapshotName).execute().actionGet();
 	}
 
+	private static class PluginConfigurableNode extends Node {
+        public PluginConfigurableNode(Settings settings, Collection<Class<? extends Plugin>> classpathPlugins) {
+            super(InternalSettingsPreparer.prepareEnvironment(settings, null), classpathPlugins);
+        }
+    }
+
 	public static class Builder {
 		private ESEmbededContainer container;
 		private String nodeName;
@@ -127,65 +136,61 @@ public class ESEmbededContainer {
 		private String templateSource;
 		private String snapshotWorkingLocation;
 		private String snapshotRepoName;
-		private boolean memoryBackedIndex = false;
+		private String customPluginListFile;
 
 		public ESEmbededContainer build() {
 			Preconditions.checkNotNull(nodeName);
 			Preconditions.checkNotNull(workingDir);
 			Preconditions.checkNotNull(clusterName);
 
-			org.elasticsearch.common.settings.ImmutableSettings.Builder builder = ImmutableSettings.builder()
+			org.elasticsearch.common.settings.Settings.Builder builder = Settings.builder()
 			.put("http.enabled", false) // Disable HTTP transport, we'll communicate inner-jvm
 			.put("processors", 1) // We could experiment ramping this up to match # cores - num reducers per node
 			.put("node.name", nodeName)
 			.put("path.data", workingDir)
-			.put("plugins." + PluginsService.LOAD_PLUGIN_FROM_CLASSPATH, true) // Allow plugins if they're bundled in with the uuberjar
-			.put("index.refresh_interval", -1) 
-			.put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
-			.put("bootstrap.mlockall", true)
-			.put("cluster.routing.allocation.disk.watermark.low", 99) // Nodes don't form a cluster, so routing allocations don't matter
-			.put("cluster.routing.allocation.disk.watermark.high", 99)
-			.put("index.load_fixed_bitset_filters_eagerly", false)
-			.put("indices.store.throttle.type", "none") // Allow indexing to max out disk IO
-			.put("indices.memory.index_buffer_size", "5%") // The default 10% is a bit large b/c it's calculated against JVM heap size & not Yarn container allocation. Choosing a good value here could be made smarter.
-			.put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
-			//.put("index.merge.policy.max_merge_at_once", 10) 
-			.put("index.merge.policy.segments_per_tier", 4)
-			.put("index.merge.scheduler.max_thread_count", 1)
-			.put("path.repo", snapshotWorkingLocation)
-			.put("index.compound_format", false) // Explicitly disable compound files
-			//.put("index.codec", "best_compression") // Lucene 5/ES 2.0 feature to play with when that's out
-			.put("indices.fielddata.cache.size", "0%");
+            .put("path.repo", snapshotWorkingLocation)
+            .put("path.home", workingDir)
+            .put("bootstrap.memory_lock", true)
+			.put("cluster.routing.allocation.disk.watermark.low", "99%") // Nodes don't form a cluster, so routing allocations don't matter
+			.put("cluster.routing.allocation.disk.watermark.high", "99%")
+            .put("node.data", true)       //data node
+            .put("transport.type", "local")
+            .put("indices.memory.index_buffer_size", "5%") // The default 10% is a bit large b/c it's calculated against JVM heap size & not Yarn container allocation. Choosing a good value here could be made smarter.
+            .put("indices.fielddata.cache.size", "0%")
+            .put("cluster.name", clusterName);
 			
-			if(memoryBackedIndex) {
-				builder.put("index.store.type", "memory");
-			}
 			Settings nodeSettings = builder.build();
 
-			// Create the node
-			container.setNode(nodeBuilder()
-					.client(false) // It's a client + data node
-					.local(true) // Tell ES cluster discovery to be inner-jvm only, disable HTTP based node discovery
-					.clusterName(clusterName)
-					.settings(nodeSettings)
-					.build());
+			try {
+                //read plugin list
+			    List<Class<? extends Plugin>> pluginClasses = container.getPluginClasses(customPluginListFile);
 
-			// Start ES
-			container.getNode().start();
+                // Create the node
+                container.setNode(new PluginConfigurableNode(nodeSettings, pluginClasses));
 
-			// Configure the cluster with an index template mapping
-			if(templateName != null && templateSource != null) {
-				container.getNode().client().admin().indices().preparePutTemplate(templateName).setSource(templateSource).get();	
-			}
+	            // Start ES
+                container.getNode().start();
 
-			// Create the snapshot repo
-			if(snapshotWorkingLocation != null && snapshotRepoName != null) {
-				Map<String, Object> settings = new HashMap<>();
-				settings.put("location", snapshotWorkingLocation);
-				settings.put("compress", true);
-				settings.put("max_snapshot_bytes_per_sec", "400mb"); // The default 20mb/sec is very slow for a local disk to disk snapshot
-				container.getNode().client().admin().cluster().preparePutRepository(snapshotRepoName).setType("fs").setSettings(settings).get();
-			}
+                // Set default index setting
+                container.setDefaultIndexSettings();
+                
+                // Configure the cluster with an index template mapping
+                if(templateName != null && templateSource != null) {
+    		         container.getNode().client().admin().indices().preparePutTemplate(templateName).setSource(templateSource).get();
+    			}
+
+    			// Create the snapshot repo
+    			if(snapshotWorkingLocation != null && snapshotRepoName != null) {
+    				Map<String, Object> settings = new HashMap<>(4);
+    				settings.put("location", snapshotWorkingLocation);
+    				settings.put("compress", true);
+    				settings.put("max_snapshot_bytes_per_sec", "400mb"); // The default 20mb/sec is very slow for a local disk to disk snapshot
+    				container.getNode().client().admin().cluster().preparePutRepository(snapshotRepoName).setType("fs").setSettings(settings).get();
+    			}
+            } catch (NodeValidationException e) {
+                logger.error("Error in getting ES node. ", e);
+                return null;
+            }
 
 			return container;
 		}
@@ -256,15 +261,14 @@ public class ESEmbededContainer {
 		}
 		
 		/**
-		 * 
-		 * @param memoryBackedIndex
-		 * @return Builder
-		 */
-		public Builder withInMemoryBackedIndexes(boolean memoryBackedIndex) {
-			this.memoryBackedIndex = memoryBackedIndex;
-			return this;
+         * 
+         * @param customPluginListFile
+         * @return Builder
+         */
+		public Builder withCustomPlugin(String customPluginListFile) {
+		    this.customPluginListFile = customPluginListFile;
+		    return this;
 		}
-
 	}
 
 	/**
@@ -279,4 +283,63 @@ public class ESEmbededContainer {
 		this.node = node;
 	}
 
+    public void setDefaultIndexSettings() {
+        org.elasticsearch.common.settings.Settings.Builder indexBuilder = Settings.builder()
+                .put("index.refresh_interval", -1) 
+                .put("index.translog.flush_threshold_size", "128mb") // Aggressive flushing helps keep the memory footprint below the yarn container max. TODO: Make configurable 
+                .put("index.load_fixed_bitset_filters_eagerly", false)
+                .put("index.merge.policy.max_merged_segment", MAX_MERGED_SEGMENT_SIZE_MB + "mb") // The default 5gb segment max size is too large for the typical hadoop node
+                .put("index.merge.policy.max_merge_at_once", 10) 
+                .put("index.merge.policy.segments_per_tier", 4)
+                .put("index.merge.scheduler.max_thread_count", 1)
+                .put("index.compound_format", false) // Explicitly disable compound files
+                .put("index.codec", "best_compression"); // Lucene 5/ES 2.0 feature to play with when that's out
+
+        this.defaultIndexSettings = indexBuilder;
+    }
+
+    public org.elasticsearch.common.settings.Settings.Builder getDefaultIndexSettings() {
+	    return defaultIndexSettings;
+	}
+
+    public void setTemplate(String templateName, String templateSource) {
+        node.client().admin().indices().preparePutTemplate(templateName).setSource(templateSource).get();    
+    }
+
+    public String getVersion() {
+        return node.client().admin().cluster().prepareNodesInfo().get().getNodes().get(0).getVersion().toString();
+    }
+
+    public List<Class<? extends Plugin>> getPluginClasses(String customPluginListFile) {
+        List<Class<? extends Plugin>> pluginClasses = new ArrayList<>();
+        if (customPluginListFile != null) {
+            try (InputStream is = getClass().getClassLoader().getResourceAsStream(customPluginListFile)) {
+                if (is != null) {
+                    String deliminator = ";";
+                    String pluginlist = IOUtils.toString(is);
+                    if (pluginlist.isEmpty()) {
+                        logger.info("Plugin list is empty.");
+                    } else {
+                        String[] pluginClassnames = pluginlist.split(deliminator);
+                        for (String pluginClassname: pluginClassnames) {
+                            Class<?> pluginClazz = Class.forName(pluginClassname);
+                            if (pluginClazz.newInstance() instanceof Plugin) {
+                                pluginClasses.add(pluginClazz.asSubclass(Plugin.class));
+                            }
+                            logger.info("Plugin "+pluginClassname+" is loaded.");
+                        }
+                    }
+                } else {
+                    logger.info("Not found the custom plugin list. No plugins are loaded.");
+                }    
+            } catch (ClassNotFoundException e) {
+                logger.error("Cannot find plugin classes. ", e);
+            } catch (InstantiationException | IllegalAccessException e) {
+                logger.error("Error in loading plugin classes. Plugin classes should be separated by ;. ", e);
+            } catch (IOException e) {
+                logger.error("Cannot read custom plugin list. ", e);
+            }
+        }
+        return pluginClasses;
+    }
 }

@@ -101,20 +101,24 @@ public class S3SnapshotTransport extends BaseTransport {
 
 	protected void transferDir(String shardDestinationBucket, String localShardPath, String shard) {
 		MultipleFileUpload mfu = tx.uploadDirectory(shardDestinationBucket + shard, null, new File(localShardPath), true, objectMetadataProvider);
+		logger.info("Transfering dir " + localShardPath + " to " + shardDestinationBucket + " with shard " + shard);
 		
 		/**
 		 * TODO: Hadoop has a configurable timeout for how long a reducer can be non-responsive (usually 600s). If 
 		 * this takes >600s hadoop will kill the task. We need to ping the reporter to let it know it's alive
 		 * in the case where the file transfer is taking a while.
 		 */
-		while(!mfu.isDone()) {
-			logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-			}
-		}
+		while(!mfu.isDone());
+//        while (!mfu.isDone()) {
+//            logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//        }
+		Preconditions.checkState(mfu.getState().equals(TransferState.Completed), "Dir " + localShardPath + " failed to upload with state: " + mfu.getState());
+		logger.info("Transfering to S3 completed %" + mfu.getProgress().getPercentTransferred());
 	}
 	
 	protected void transferFile(boolean deleteSource, String bucket, String filename, String localDirectory) {
@@ -158,4 +162,22 @@ public class S3SnapshotTransport extends BaseTransport {
 		return false;
 	}
 
+	@Override
+    protected boolean checkExists(String destination, String filename) throws IOException {
+        // Break that s3 path into bucket & key 
+        String[] pieces = StringUtils.split(destination, "/");
+        String bucket = pieces[0];
+        String key = destination.substring(bucket.length() + 1);
+        String prefix = key + filename;
+        
+        // AWS SDK doesn't have an "exists" method so you have to list and check if the key is there. Thanks Obama
+        ObjectListing objects = tx.getAmazonS3Client().listObjects(new ListObjectsRequest().withBucketName(bucket).withPrefix(key));
+
+        for (S3ObjectSummary objectSummary: objects.getObjectSummaries()) {
+            if (objectSummary.getKey().startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>1.2.1</version>
+	<version>5.1.1</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
@@ -14,8 +14,7 @@
 		<java-version>1.7</java-version>
 		<junit.version>4.11</junit.version>
 		<mockito.version>1.9.5</mockito.version>
-		<analytics.core.version>0.1.93-SNAPSHOT</analytics.core.version>
-		<hadoop.core.version>2.2.0</hadoop.core.version>
+		<hadoop.core.version>2.7.2</hadoop.core.version>
 		<apache.commons-io.version>2.4</apache.commons-io.version>
 		<apache.commons-lang.version>2.5</apache.commons-lang.version>
 		<commons.codec.version>1.4</commons.codec.version>
@@ -28,7 +27,9 @@
 		<logback.version>1.0.13</logback.version>
 		<aws-java-sdk.version>1.9.38</aws-java-sdk.version>
 		<slf4j.version>1.7.5</slf4j.version>
+		<log4j.version>2.6.2</log4j.version>
 		<org.apache.avro.version>1.7.5</org.apache.avro.version>
+        <elasticsearch.version>5.1.1</elasticsearch.version>
 	</properties>
 	
 	<licenses>
@@ -80,6 +81,12 @@
 
 
 	<dependencies>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>${elasticsearch.version}</version> 
+        </dependency>
+	
 		<dependency>
 			<groupId>commons-codec</groupId>
 			<artifactId>commons-codec</artifactId>
@@ -123,7 +130,11 @@
 			<version>${joda.version}</version>
 		</dependency>
 
-
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>transport</artifactId>
+            <version>${elasticsearch.version}</version>
+        </dependency>     
 
 		<dependency>
 			<groupId>org.apache.curator</groupId>
@@ -195,11 +206,6 @@
 			<classifier>hadoop2</classifier>
 			<scope>provided</scope>
 		</dependency>
-		<dependency>
-			<groupId>org.elasticsearch</groupId>
-			<artifactId>elasticsearch</artifactId>
-			<version>1.6.0</version> 
-		</dependency>
 
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
@@ -242,11 +248,17 @@
 		</dependency>
 		<!-- Logging -->
 
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-		</dependency>
-	
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        
 		<!-- Utility packages -->
 		<dependency>
 			<groupId>commons-lang</groupId>
@@ -277,24 +289,6 @@
 					<groupId>commons-codec</groupId>
 				</exclusion>
 			</exclusions>
-		</dependency>
-
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>1.7.5</version>
-		</dependency>
-
-
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>jul-to-slf4j</artifactId>
-			<version>${slf4j.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>log4j-over-slf4j</artifactId>
-			<version>${slf4j.version}</version>
 		</dependency>
 
 		<dependency>
@@ -479,6 +473,8 @@
 		      <version>1.5</version>
 		       <configuration>
 			      <executable>gpg</executable>
+			      <!-- this is required for testing -->
+			      <skip>true</skip>
 		       </configuration>
 		      <executions>
 		        <execution>
@@ -490,18 +486,23 @@
 		        </execution>
 		      </executions>
 		    </plugin>	
+		    <!--  
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <configuration>
-                        <!-- jdk8 started linting javadocs by default; ours are not fully compliant -->
                         <additionalparam>-Xdoclint:none</additionalparam>
                     </configuration>
-                </plugin>		    	    
+                </plugin>
+             -->		    	    
 		    <plugin>
 		      <groupId>org.apache.maven.plugins</groupId>
 		      <artifactId>maven-javadoc-plugin</artifactId>
 		      <version>2.9.1</version>
+              <configuration>
+                  <!-- jdk8 started linting javadocs by default; ours are not fully compliant -->
+                  <additionalparam>-Xdoclint:none</additionalparam>
+              </configuration>
 		      <executions>
 		        <execution>
 		          <id>attach-javadocs</id>
@@ -538,6 +539,7 @@
 					<archive>
 						<manifest>
 							<mainClass>com.inin.analytics.elasticsearch.driver.Driver</mainClass>
+                                                        <addClasspath>true</addClasspath>
 						</manifest>
 					</archive>
 				</configuration>
