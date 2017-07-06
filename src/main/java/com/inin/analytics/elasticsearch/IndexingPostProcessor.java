@@ -94,7 +94,7 @@ public class IndexingPostProcessor {
 					placeMissingIndexes(BaseESReducer.SNAPSHOT_NAME, esEmbededContainer, conf, index, shardConfig, !rootManifestUploaded);
 					// The root level manifests are the same on each one, so it need only be uploaded once
 					rootManifestUploaded = true;
-				} catch (FileNotFoundException e) {
+				} catch (FileNotFoundException | IllegalArgumentException e) {
 					logger.error("Unable to include index " + index + " in the manifest because missing shards could not be generated", e);
 					continue;
 				}
