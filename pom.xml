@@ -5,7 +5,7 @@
 	<groupId>com.inin.analytics</groupId>
 	<artifactId>elasticsearch-lambda</artifactId>
 	<packaging>jar</packaging>
-	<version>5.1.1</version>
+	<version>5.1.1-dev</version>
 	<name>elasticsearch-lambda</name>
 	<description>Framework For Lambda Architecture on Elasticsearch</description>
 	<url>https://github.com/drewdahlke/elasticsearch-lambda</url>
